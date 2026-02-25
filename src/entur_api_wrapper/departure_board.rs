@@ -1,6 +1,6 @@
 use chrono::{TimeDelta, Utc};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Departure {
 	pub line: String,
 	pub destination: String,

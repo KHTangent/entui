@@ -1,15 +1,14 @@
-use std::fmt::format;
 use std::time::Duration;
 
 use color_eyre::Result;
 use color_eyre::eyre::Context;
-use itertools::Itertools;
 use ratatui::crossterm::event::{self, KeyCode};
-use ratatui::widgets::Paragraph;
 use ratatui::{DefaultTerminal, Frame};
 
+use crate::components::departure_item::DepartureItem;
 use crate::entur_api_wrapper::departure_board::get_departures;
 
+mod components;
 mod entur_api_wrapper;
 
 fn main() -> Result<()> {
@@ -26,12 +25,9 @@ fn run(terminal: &mut DefaultTerminal) -> Result<()> {
 	Ok(())
 }
 fn render(frame: &mut Frame) {
-	let departures: String = get_departures("Siemens")
-		.iter()
-		.map(|d| format!("{} {}   {}", d.line, d.destination, d.time.to_string()).to_string())
-		.join("\n");
-	let greeting = Paragraph::new(departures);
-	frame.render_widget(greeting, frame.area());
+	let departures = get_departures("Siemens");
+	let first = &departures[0];
+	frame.render_widget(DepartureItem::from(first.clone()), frame.area());
 }
 
 fn should_quit() -> Result<bool> {

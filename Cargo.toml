@@ -6,6 +6,5 @@ edition = "2024"
 [dependencies]
 chrono = "0.4"
 color-eyre = "0.6"
-itertools = "0.14"
 ratatui = "0.30"
 
