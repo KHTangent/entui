@@ -3,7 +3,9 @@ use std::time::Duration;
 use color_eyre::Result;
 use color_eyre::eyre::Context;
 use ratatui::crossterm::event::{self, KeyCode};
-use ratatui::layout::{Constraint, Layout};
+use ratatui::layout::{Constraint, Layout, Margin};
+use ratatui::style::Color;
+use ratatui::widgets::{Block, Borders};
 use ratatui::{DefaultTerminal, Frame};
 
 use crate::components::departure_item::DepartureItem;
@@ -26,10 +28,23 @@ fn run(terminal: &mut DefaultTerminal) -> Result<()> {
 	Ok(())
 }
 fn render(frame: &mut Frame) {
+	let main_layout = Layout::horizontal([Constraint::Fill(1), Constraint::Fill(1)]);
+	let [departure_board, _details] = frame.area().layout(&main_layout);
+	let block = Block::default().borders(Borders::ALL);
+	frame.render_widget(block, departure_board);
+	let departure_board = departure_board.inner(Margin::new(1, 1));
+
 	let departures = get_departures("Siemens");
-	let list = Layout::vertical(vec![Constraint::Length(1); departures.len()]);
-	for (&area, departure) in list.split(frame.area()).iter().zip(departures.into_iter()) {
-		frame.render_widget(DepartureItem::from(departure), area);
+	let departure_list = Layout::vertical(vec![Constraint::Length(1); departures.len()]);
+	for (&area, departure) in departure_list
+		.split(departure_board)
+		.iter()
+		.zip(departures.into_iter())
+	{
+		frame.render_widget(
+			DepartureItem::from(departure).with_line_color(Color::White, Color::Green),
+			area,
+		);
 	}
 }
 

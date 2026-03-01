@@ -2,7 +2,7 @@ use chrono::{Timelike, Utc};
 use ratatui::{
 	layout::{Constraint, Layout},
 	prelude::{Buffer, Rect},
-	style::Stylize,
+	style::{Color, Style, Stylize},
 	widgets::{Paragraph, Widget},
 };
 
@@ -10,10 +10,24 @@ use crate::entur_api_wrapper::departure_board::Departure;
 
 pub struct DepartureItem {
 	departure: Departure,
+	line_color: Color,
+	line_color_bg: Color,
 }
 impl From<Departure> for DepartureItem {
 	fn from(value: Departure) -> Self {
-		DepartureItem { departure: value }
+		DepartureItem {
+			departure: value,
+			line_color: Color::default(),
+			line_color_bg: Color::default(),
+		}
+	}
+}
+
+impl DepartureItem {
+	pub fn with_line_color(mut self, text: Color, bg: Color) -> DepartureItem {
+		self.line_color = text;
+		self.line_color_bg = bg;
+		self
 	}
 }
 
@@ -28,6 +42,7 @@ impl Widget for DepartureItem {
 		Paragraph::new(self.departure.line)
 			.bold()
 			.centered()
+			.style(Style::new().fg(self.line_color).bg(self.line_color_bg))
 			.render(line_box, buf);
 		Paragraph::new(self.departure.destination).render(destination_box, buf);
 		let relative_time = match (Utc::now() - self.departure.time).num_minutes() {
