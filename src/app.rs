@@ -1,29 +1,71 @@
 use color_eyre::Result;
-use ratatui::crossterm::event::{self, Event, KeyCode};
+use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::layout::{Constraint, Layout, Margin};
+use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::{DefaultTerminal, Frame};
 
 use crate::components::departure_list::DepartureList;
-use crate::entur_api_wrapper::departure_board::get_departures;
+use crate::entur_api_wrapper::departure_board::{Departure, get_departures};
 
-pub struct App {}
+const ACTIVE_COLOR: Color = Color::Yellow;
+const INACTIVE_COLOR: Color = Color::White;
+
+#[derive(PartialEq, Eq, Default)]
+enum AppState {
+	#[default]
+	DepartureList,
+	EditSearch,
+}
+impl AppState {
+	pub fn color_if_state_is(&self, other: AppState) -> Color {
+		if *self == other {
+			ACTIVE_COLOR
+		} else {
+			INACTIVE_COLOR
+		}
+	}
+}
+
+pub struct App {
+	current_state: AppState,
+	active_departures: Vec<Departure>,
+}
 
 impl App {
 	pub fn new() -> Self {
-		Self {}
+		Self {
+			current_state: AppState::default(),
+			active_departures: vec![],
+		}
 	}
 
 	pub fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
 		loop {
+			self.active_departures = get_departures("Siemens");
+
 			terminal.draw(|frame| self.render(frame))?;
+
 			if let Event::Key(key) = event::read()? {
-				if key.is_press() && key.code == KeyCode::Char('q') {
-					break;
+				match self.current_state {
+					AppState::DepartureList => match key.code {
+						KeyCode::Char('q') if key.kind == KeyEventKind::Press => {
+							return Ok(());
+						}
+						KeyCode::Char('e') if key.kind == KeyEventKind::Press => {
+							self.current_state = AppState::EditSearch;
+						}
+						_ => {}
+					},
+					AppState::EditSearch => match key.code {
+						KeyCode::Esc if key.kind == KeyEventKind::Press => {
+							self.current_state = AppState::DepartureList;
+						}
+						_ => {}
+					},
 				}
 			}
 		}
-		Ok(())
 	}
 
 	fn render(&mut self, frame: &mut Frame) {
@@ -38,9 +80,16 @@ impl App {
 
 		let search_bar_block = Block::default()
 			.borders(Borders::ALL)
+			.border_style(
+				Style::new().fg(self.current_state.color_if_state_is(AppState::EditSearch)),
+			)
 			.title_bottom("Stop name");
 		frame.render_widget(search_bar_block, search_bar_rect);
-		let departure_board_block = Block::default().borders(Borders::ALL);
+		let departure_board_block = Block::default().borders(Borders::ALL).border_style(
+			Style::new().fg(self
+				.current_state
+				.color_if_state_is(AppState::DepartureList)),
+		);
 		frame.render_widget(departure_board_block, departures_rect);
 		let details_block = Block::default().borders(Borders::ALL);
 		frame.render_widget(details_block, details_rect);
@@ -50,7 +99,9 @@ impl App {
 		frame.render_widget(dummy_search_text, search_inner);
 
 		let departure_board = departures_rect.inner(Margin::new(1, 1));
-		let departures = get_departures("Siemens");
-		frame.render_widget(DepartureList::from(&departures), departure_board);
+		frame.render_widget(
+			DepartureList::from(&self.active_departures),
+			departure_board,
+		);
 	}
 }
