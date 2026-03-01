@@ -20,9 +20,9 @@ impl From<Departure> for DepartureItem {
 impl Widget for DepartureItem {
 	fn render(self, area: Rect, buf: &mut Buffer) {
 		let line_layout = Layout::horizontal([
-			Constraint::Length(2),
-			Constraint::Fill(1),
-			Constraint::Length(2),
+			Constraint::Fill(2),
+			Constraint::Fill(8),
+			Constraint::Fill(2),
 		]);
 		let [line_box, destination_box, time_box] = area.layout(&line_layout);
 		Paragraph::new(self.departure.line)
@@ -34,7 +34,7 @@ impl Widget for DepartureItem {
 			0 => "now".to_string(),
 			n @ 1..=10 => format!("{n} minutes"),
 			_ => format!(
-				"{:0<2}:{:0<2}",
+				"{:02}:{:02}",
 				self.departure.time.hour(),
 				self.departure.time.minute()
 			),
