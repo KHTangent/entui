@@ -1,10 +1,8 @@
 use color_eyre::Result;
-use color_eyre::eyre::Context;
-use ratatui::crossterm::event::{self, KeyCode};
+use ratatui::crossterm::event::{self, Event, KeyCode};
 use ratatui::layout::{Constraint, Layout, Margin};
 use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::{DefaultTerminal, Frame};
-use std::time::Duration;
 
 use crate::components::departure_list::DepartureList;
 use crate::entur_api_wrapper::departure_board::get_departures;
@@ -19,8 +17,10 @@ impl App {
 	pub fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
 		loop {
 			terminal.draw(|frame| self.render(frame))?;
-			if self.should_quit()? {
-				break;
+			if let Event::Key(key) = event::read()? {
+				if key.is_press() && key.code == KeyCode::Char('q') {
+					break;
+				}
 			}
 		}
 		Ok(())
@@ -52,16 +52,5 @@ impl App {
 		let departure_board = departures_rect.inner(Margin::new(1, 1));
 		let departures = get_departures("Siemens");
 		frame.render_widget(DepartureList::from(&departures), departure_board);
-	}
-
-	fn should_quit(&self) -> Result<bool> {
-		if event::poll(Duration::from_millis(250)).context("event poll failed")? {
-			let q_pressed = event::read()
-				.context("event read failed")?
-				.as_key_press_event()
-				.is_some_and(|key| key.code == KeyCode::Char('q'));
-			return Ok(q_pressed);
-		}
-		Ok(false)
 	}
 }
