@@ -1,5 +1,5 @@
 use color_eyre::Result;
-use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Layout, Margin};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders, Paragraph};
@@ -47,6 +47,12 @@ impl App {
 			terminal.draw(|frame| self.render(frame))?;
 
 			if let Event::Key(key) = event::read()? {
+				if key.is_press()
+					&& key.modifiers == KeyModifiers::CONTROL
+					&& key.code == KeyCode::Char('c')
+				{
+					return Ok(());
+				}
 				match self.current_state {
 					AppState::DepartureList => match key.code {
 						KeyCode::Char('q') if key.kind == KeyEventKind::Press => {
