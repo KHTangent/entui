@@ -30,6 +30,7 @@ impl AppState {
 pub struct App {
 	current_state: AppState,
 	active_departures: Vec<Departure>,
+	current_stop_entry: String,
 }
 
 impl App {
@@ -37,6 +38,7 @@ impl App {
 		Self {
 			current_state: AppState::default(),
 			active_departures: vec![],
+			current_stop_entry: String::default(),
 		}
 	}
 
@@ -64,6 +66,14 @@ impl App {
 						_ => {}
 					},
 					AppState::EditSearch => match key.code {
+						KeyCode::Char(c) if key.kind == KeyEventKind::Press => {
+							self.current_stop_entry.push(c);
+						}
+						KeyCode::Backspace if key.kind == KeyEventKind::Press => {
+							if !self.current_stop_entry.is_empty() {
+								self.current_stop_entry.pop();
+							}
+						}
 						KeyCode::Esc if key.kind == KeyEventKind::Press => {
 							self.current_state = AppState::DepartureList;
 						}
@@ -101,8 +111,8 @@ impl App {
 		frame.render_widget(details_block, details_rect);
 
 		let search_inner = search_bar_rect.inner(Margin::new(2, 2));
-		let dummy_search_text = Paragraph::new("Siemens");
-		frame.render_widget(dummy_search_text, search_inner);
+		let search_text = Paragraph::new(self.current_stop_entry.clone());
+		frame.render_widget(search_text, search_inner);
 
 		let departure_board = departures_rect.inner(Margin::new(1, 1));
 		frame.render_widget(
