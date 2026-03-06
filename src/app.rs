@@ -4,6 +4,7 @@ use ratatui::layout::{Constraint, Layout, Margin};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::{DefaultTerminal, Frame};
+use tui_input::backend::crossterm::EventHandler;
 
 use crate::components::departure_list::DepartureList;
 use crate::entur_api_wrapper::departure_board::{Departure, get_departures};
@@ -30,7 +31,7 @@ impl AppState {
 pub struct App {
 	current_state: AppState,
 	active_departures: Vec<Departure>,
-	current_stop_entry: String,
+	stop_input: tui_input::Input,
 }
 
 impl App {
@@ -38,7 +39,7 @@ impl App {
 		Self {
 			current_state: AppState::default(),
 			active_departures: vec![],
-			current_stop_entry: String::default(),
+			stop_input: tui_input::Input::default(),
 		}
 	}
 
@@ -48,7 +49,8 @@ impl App {
 
 			terminal.draw(|frame| self.render(frame))?;
 
-			if let Event::Key(key) = event::read()? {
+			let event = event::read()?;
+			if let Event::Key(key) = event {
 				if key.is_press()
 					&& key.modifiers == KeyModifiers::CONTROL
 					&& key.code == KeyCode::Char('c')
@@ -66,18 +68,12 @@ impl App {
 						_ => {}
 					},
 					AppState::EditSearch => match key.code {
-						KeyCode::Char(c) if key.kind == KeyEventKind::Press => {
-							self.current_stop_entry.push(c);
-						}
-						KeyCode::Backspace if key.kind == KeyEventKind::Press => {
-							if !self.current_stop_entry.is_empty() {
-								self.current_stop_entry.pop();
-							}
-						}
 						KeyCode::Esc if key.kind == KeyEventKind::Press => {
 							self.current_state = AppState::DepartureList;
 						}
-						_ => {}
+						_ => {
+							self.stop_input.handle_event(&event);
+						}
 					},
 				}
 			}
@@ -111,8 +107,12 @@ impl App {
 		frame.render_widget(details_block, details_rect);
 
 		let search_inner = search_bar_rect.inner(Margin::new(2, 2));
-		let search_text = Paragraph::new(self.current_stop_entry.clone());
+		let search_text = Paragraph::new(self.stop_input.value());
 		frame.render_widget(search_text, search_inner);
+		if self.current_state == AppState::EditSearch {
+			let x = self.stop_input.visual_cursor();
+			frame.set_cursor_position((search_inner.x + x as u16, search_inner.y as u16));
+		}
 
 		let departure_board = departures_rect.inner(Margin::new(1, 1));
 		frame.render_widget(
