@@ -2,7 +2,7 @@ use color_eyre::Result;
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Layout, Margin};
 use ratatui::style::{Color, Style};
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::widgets::{Block, Borders, Padding, Paragraph};
 use ratatui::{DefaultTerminal, Frame};
 use tui_input::backend::crossterm::EventHandler;
 
@@ -90,13 +90,6 @@ impl App {
 			Constraint::Fill(1),
 		]));
 
-		let search_bar_block = Block::default()
-			.borders(Borders::ALL)
-			.border_style(
-				Style::new().fg(self.current_state.color_if_state_is(AppState::EditSearch)),
-			)
-			.title_bottom("Stop name");
-		frame.render_widget(search_bar_block, search_bar_rect);
 		let departure_board_block = Block::default().borders(Borders::ALL).border_style(
 			Style::new().fg(self
 				.current_state
@@ -106,12 +99,19 @@ impl App {
 		let details_block = Block::default().borders(Borders::ALL);
 		frame.render_widget(details_block, details_rect);
 
-		let search_inner = search_bar_rect.inner(Margin::new(2, 2));
-		let search_text = Paragraph::new(self.stop_input.value());
-		frame.render_widget(search_text, search_inner);
+		let search_text = Paragraph::new(self.stop_input.value()).block(
+			Block::default()
+				.borders(Borders::ALL)
+				.padding(Padding::uniform(1))
+				.border_style(
+					Style::new().fg(self.current_state.color_if_state_is(AppState::EditSearch)),
+				)
+				.title_bottom("Stop name"),
+		);
+		frame.render_widget(search_text, search_bar_rect);
 		if self.current_state == AppState::EditSearch {
-			let x = self.stop_input.visual_cursor();
-			frame.set_cursor_position((search_inner.x + x as u16, search_inner.y as u16));
+			let x = self.stop_input.visual_cursor() as u16;
+			frame.set_cursor_position((search_bar_rect.x + x + 2, search_bar_rect.y + 2 as u16));
 		}
 
 		let departure_board = departures_rect.inner(Margin::new(1, 1));
