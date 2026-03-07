@@ -18,6 +18,7 @@ enum AppState {
 	#[default]
 	DepartureList,
 	EditSearch,
+	BrowseStops,
 }
 impl AppState {
 	pub fn color_if_state_is(&self, other: AppState) -> Color {
@@ -77,6 +78,17 @@ impl App {
 						KeyCode::Esc if key.kind == KeyEventKind::Press => {
 							self.deselect_departure();
 						}
+						KeyCode::Enter if key.kind == KeyEventKind::Press => {
+							if self.selected_departure_index.is_some() {
+								self.current_state = AppState::BrowseStops;
+							}
+						}
+						_ => {}
+					},
+					AppState::BrowseStops => match key.code {
+						KeyCode::Esc if key.kind == KeyEventKind::Press => {
+							self.current_state = AppState::DepartureList;
+						}
 						_ => {}
 					},
 					AppState::EditSearch => match key.code {
@@ -108,7 +120,9 @@ impl App {
 				.color_if_state_is(AppState::DepartureList)),
 		);
 		frame.render_widget(departure_board_block, departures_rect);
-		let details_block = Block::default().borders(Borders::ALL);
+		let details_block = Block::default().borders(Borders::ALL).border_style(
+			Style::new().fg(self.current_state.color_if_state_is(AppState::BrowseStops)),
+		);
 		frame.render_widget(details_block, details_rect);
 
 		let search_text = Paragraph::new(self.stop_input.value()).block(
