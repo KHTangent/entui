@@ -7,6 +7,7 @@ use ratatui::{DefaultTerminal, Frame};
 use tui_input::backend::crossterm::EventHandler;
 
 use crate::components::departure_list::DepartureList;
+use crate::components::stop_list::StopList;
 use crate::entur_api_wrapper::departure_board::{Departure, get_departures};
 
 const ACTIVE_COLOR: Color = Color::Yellow;
@@ -131,6 +132,12 @@ impl App {
 				.with_selected_index(self.selected_departure_index),
 			departure_board,
 		);
+
+		if let Some(selected_departure) = self.selected_departure_index {
+			let stops = self.active_departures[selected_departure].get_stops();
+			let stops_board = details_rect.inner(Margin::new(1, 1));
+			frame.render_widget(StopList::from(&stops), stops_board);
+		}
 	}
 
 	fn select_next_departure(&mut self) {
