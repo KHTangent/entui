@@ -35,6 +35,9 @@ pub struct App {
 	active_departures: Vec<Departure>,
 	selected_departure_index: Option<usize>,
 	stop_input: tui_input::Input,
+	selected_stop_index: Option<usize>,
+	stop_scroll_offset: usize,
+	list_containers_height: usize,
 }
 
 impl App {
@@ -44,6 +47,9 @@ impl App {
 			active_departures: vec![],
 			stop_input: tui_input::Input::default(),
 			selected_departure_index: None,
+			selected_stop_index: None,
+			stop_scroll_offset: 0,
+			list_containers_height: 1,
 		}
 	}
 
@@ -79,7 +85,8 @@ impl App {
 							self.deselect_departure();
 						}
 						KeyCode::Enter if key.kind == KeyEventKind::Press => {
-							if self.selected_departure_index.is_some() {
+							if let Some(index) = self.selected_departure_index {
+								self.initialize_browse_stops(index);
 								self.current_state = AppState::BrowseStops;
 							}
 						}
@@ -88,6 +95,15 @@ impl App {
 					AppState::BrowseStops => match key.code {
 						KeyCode::Esc if key.kind == KeyEventKind::Press => {
 							self.current_state = AppState::DepartureList;
+						}
+						KeyCode::Char('q') if key.kind == KeyEventKind::Press => {
+							return Ok(());
+						}
+						KeyCode::Char('j') | KeyCode::Down if key.kind == KeyEventKind::Press => {
+							self.select_next_stop();
+						}
+						KeyCode::Char('k') | KeyCode::Up if key.kind == KeyEventKind::Press => {
+							self.select_previous_stop();
 						}
 						_ => {}
 					},
@@ -120,6 +136,7 @@ impl App {
 				.color_if_state_is(AppState::DepartureList)),
 		);
 		frame.render_widget(departure_board_block, departures_rect);
+
 		let details_block = Block::default().borders(Borders::ALL).border_style(
 			Style::new().fg(self.current_state.color_if_state_is(AppState::BrowseStops)),
 		);
@@ -146,18 +163,24 @@ impl App {
 				.with_selected_index(self.selected_departure_index),
 			departure_board,
 		);
+		self.list_containers_height = departure_board.height.max(1) as usize;
 
 		if let Some(selected_departure) = self.selected_departure_index {
 			let stops = self.active_departures[selected_departure].get_stops();
 			let stops_board = details_rect.inner(Margin::new(1, 1));
-			frame.render_widget(StopList::from(&stops), stops_board);
+			frame.render_widget(
+				StopList::from(&stops)
+					.with_selected_index(self.selected_stop_index)
+					.with_scroll_offset(self.stop_scroll_offset),
+				stops_board,
+			);
 		}
 	}
 
 	fn select_next_departure(&mut self) {
-		if let Some(idx) = self.selected_departure_index {
-			if idx + 1 < self.active_departures.len() {
-				self.selected_departure_index = Some(idx + 1);
+		if let Some(index) = self.selected_departure_index {
+			if index + 1 < self.active_departures.len() {
+				self.selected_departure_index = Some(index + 1);
 			}
 		} else if !self.active_departures.is_empty() {
 			self.selected_departure_index = Some(0);
@@ -165,9 +188,9 @@ impl App {
 	}
 
 	fn select_previous_departure(&mut self) {
-		if let Some(idx) = self.selected_departure_index {
-			if idx > 0 {
-				self.selected_departure_index = Some(idx - 1);
+		if let Some(index) = self.selected_departure_index {
+			if index > 0 {
+				self.selected_departure_index = Some(index - 1);
 			}
 		} else if !self.active_departures.is_empty() {
 			self.selected_departure_index = Some(self.active_departures.len() - 1);
@@ -176,5 +199,63 @@ impl App {
 
 	fn deselect_departure(&mut self) {
 		self.selected_departure_index = None;
+	}
+
+	fn initialize_browse_stops(&mut self, departure_index: usize) {
+		let stops = self.active_departures[departure_index].get_stops();
+		let search_name = self.stop_input.value();
+
+		let selected_index = stops.iter().position(|s| s.name == search_name).or(None);
+
+		self.selected_stop_index = selected_index;
+		self.stop_scroll_offset = 0;
+	}
+
+	fn select_next_stop(&mut self) {
+		if let Some(departure_index) = self.selected_departure_index {
+			let stops = self.active_departures[departure_index].get_stops();
+
+			if let Some(index) = self.selected_stop_index {
+				if index + 1 < stops.len() {
+					self.selected_stop_index = Some(index + 1);
+					self.adjust_stop_scroll(stops.len());
+				}
+			} else if !stops.is_empty() {
+				self.selected_stop_index = Some(0);
+			}
+		}
+	}
+
+	fn select_previous_stop(&mut self) {
+		if let Some(departure_index) = self.selected_departure_index {
+			let stops = self.active_departures[departure_index].get_stops();
+
+			if let Some(index) = self.selected_stop_index {
+				if index > 0 {
+					self.selected_stop_index = Some(index - 1);
+					self.adjust_stop_scroll(stops.len());
+				}
+			} else if !stops.is_empty() {
+				self.selected_stop_index = Some(stops.len() - 1);
+			}
+		}
+	}
+
+	fn adjust_stop_scroll(&mut self, total_stops: usize) {
+		if let Some(selected) = self.selected_stop_index {
+			let visible_height = self.list_containers_height;
+
+			if selected < self.stop_scroll_offset {
+				// Selected is above visible area, scroll up
+				self.stop_scroll_offset = selected;
+			} else if selected >= self.stop_scroll_offset + visible_height {
+				// Selected is below visible area, scroll down
+				self.stop_scroll_offset = selected.saturating_sub(visible_height - 1);
+			}
+
+			// Ensure scroll offset doesn't go beyond bounds
+			let max_offset = total_stops.saturating_sub(visible_height);
+			self.stop_scroll_offset = self.stop_scroll_offset.min(max_offset);
+		}
 	}
 }
