@@ -31,6 +31,7 @@ impl AppState {
 pub struct App {
 	current_state: AppState,
 	active_departures: Vec<Departure>,
+	selected_departure_index: Option<usize>,
 	stop_input: tui_input::Input,
 }
 
@@ -40,6 +41,7 @@ impl App {
 			current_state: AppState::default(),
 			active_departures: vec![],
 			stop_input: tui_input::Input::default(),
+			selected_departure_index: None,
 		}
 	}
 
@@ -64,6 +66,15 @@ impl App {
 						}
 						KeyCode::Char('e') if key.kind == KeyEventKind::Press => {
 							self.current_state = AppState::EditSearch;
+						}
+						KeyCode::Char('j') | KeyCode::Down if key.kind == KeyEventKind::Press => {
+							self.select_next_departure();
+						}
+						KeyCode::Char('k') | KeyCode::Up if key.kind == KeyEventKind::Press => {
+							self.select_previous_departure();
+						}
+						KeyCode::Esc if key.kind == KeyEventKind::Press => {
+							self.deselect_departure();
 						}
 						_ => {}
 					},
@@ -116,8 +127,33 @@ impl App {
 
 		let departure_board = departures_rect.inner(Margin::new(1, 1));
 		frame.render_widget(
-			DepartureList::from(&self.active_departures),
+			DepartureList::from(&self.active_departures)
+				.with_selected_index(self.selected_departure_index),
 			departure_board,
 		);
+	}
+
+	fn select_next_departure(&mut self) {
+		if let Some(idx) = self.selected_departure_index {
+			if idx + 1 < self.active_departures.len() {
+				self.selected_departure_index = Some(idx + 1);
+			}
+		} else if !self.active_departures.is_empty() {
+			self.selected_departure_index = Some(0);
+		}
+	}
+
+	fn select_previous_departure(&mut self) {
+		if let Some(idx) = self.selected_departure_index {
+			if idx > 0 {
+				self.selected_departure_index = Some(idx - 1);
+			}
+		} else if !self.active_departures.is_empty() {
+			self.selected_departure_index = Some(self.active_departures.len() - 1);
+		}
+	}
+
+	fn deselect_departure(&mut self) {
+		self.selected_departure_index = None;
 	}
 }
