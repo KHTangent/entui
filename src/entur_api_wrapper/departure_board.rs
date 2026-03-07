@@ -1,16 +1,16 @@
-use chrono::{TimeDelta, Utc};
+use chrono::{Local, TimeDelta};
 
 #[derive(Debug, Clone)]
 pub struct Departure {
 	pub line: String,
 	pub destination: String,
-	pub time: chrono::DateTime<Utc>,
+	pub time: chrono::DateTime<Local>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Stop {
 	pub name: String,
-	pub time: chrono::DateTime<Utc>,
+	pub time: chrono::DateTime<Local>,
 }
 
 impl Departure {
@@ -75,7 +75,7 @@ pub fn get_departures(from: &str) -> Vec<Departure> {
 				v.push(Departure {
 					line: "10".to_string(),
 					destination: "Sæterbakken via Sentrum".to_string(),
-					time: Utc::now() + TimeDelta::minutes(5 * i),
+					time: Local::now() + TimeDelta::minutes(5 * i),
 				});
 			}
 			v

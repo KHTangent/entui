@@ -1,4 +1,4 @@
-use chrono::{Timelike, Utc};
+use chrono::Local;
 use ratatui::{
 	layout::{Constraint, Layout},
 	prelude::{Buffer, Rect},
@@ -6,7 +6,7 @@ use ratatui::{
 	widgets::{Block, Paragraph, Widget},
 };
 
-use crate::entur_api_wrapper::departure_board::Departure;
+use crate::{entur_api_wrapper::departure_board::Departure, utils::format_relative_time};
 
 pub struct DepartureItem<'a> {
 	departure: &'a Departure,
@@ -58,15 +58,7 @@ impl<'a> Widget for DepartureItem<'a> {
 			.style(Style::new().fg(self.line_color).bg(self.line_color_bg))
 			.render(line_box, buf);
 		Paragraph::new(self.departure.destination.as_str()).render(destination_box, buf);
-		let relative_time = match (Utc::now() - self.departure.time).num_minutes() {
-			0 => "now".to_string(),
-			n @ 1..=10 => format!("{n} minutes"),
-			_ => format!(
-				"{:02}:{:02}",
-				self.departure.time.hour(),
-				self.departure.time.minute()
-			),
-		};
-		Paragraph::new(relative_time).render(time_box, buf);
+		Paragraph::new(format_relative_time(&Local::now(), &self.departure.time))
+			.render(time_box, buf);
 	}
 }
