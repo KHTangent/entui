@@ -6,6 +6,7 @@ use crate::app::App;
 mod app;
 mod components;
 mod entur_api_wrapper;
+mod styles;
 mod utils;
 
 fn main() -> Result<()> {

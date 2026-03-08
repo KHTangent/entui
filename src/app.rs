@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
-use ratatui::layout::{Constraint, Layout, Margin};
-use ratatui::style::{Color, Style};
+use ratatui::layout::{Constraint, Layout};
+use ratatui::style::Style;
 use ratatui::widgets::{Block, Borders, Padding, Paragraph};
 use ratatui::{DefaultTerminal, Frame};
 use tui_input::backend::crossterm::EventHandler;
@@ -9,9 +9,7 @@ use tui_input::backend::crossterm::EventHandler;
 use crate::components::departure_list::DepartureList;
 use crate::components::stop_list::StopList;
 use crate::entur_api_wrapper::departure_board::{Departure, get_departures};
-
-const ACTIVE_COLOR: Color = Color::Yellow;
-const INACTIVE_COLOR: Color = Color::White;
+use crate::styles;
 
 #[derive(PartialEq, Eq, Default)]
 enum AppState {
@@ -19,15 +17,6 @@ enum AppState {
 	DepartureList,
 	EditSearch,
 	BrowseStops,
-}
-impl AppState {
-	pub fn color_if_state_is(&self, other: AppState) -> Color {
-		if *self == other {
-			ACTIVE_COLOR
-		} else {
-			INACTIVE_COLOR
-		}
-	}
 }
 
 pub struct App {
@@ -130,24 +119,14 @@ impl App {
 			Constraint::Fill(1),
 		]));
 
-		let departure_board_block = Block::default().borders(Borders::ALL).border_style(
-			Style::new().fg(self
-				.current_state
-				.color_if_state_is(AppState::DepartureList)),
-		);
-		frame.render_widget(departure_board_block, departures_rect);
-
-		let details_block = Block::default().borders(Borders::ALL).border_style(
-			Style::new().fg(self.current_state.color_if_state_is(AppState::BrowseStops)),
-		);
-		frame.render_widget(details_block, details_rect);
-
 		let search_text = Paragraph::new(self.stop_input.value()).block(
 			Block::default()
 				.borders(Borders::ALL)
 				.padding(Padding::uniform(1))
 				.border_style(
-					Style::new().fg(self.current_state.color_if_state_is(AppState::EditSearch)),
+					Style::new().fg((self.current_state == AppState::EditSearch)
+						.then_some(styles::ACTIVE_COLOR)
+						.unwrap_or(styles::INACTIVE_COLOR)),
 				)
 				.title_bottom("Stop name"),
 		);
@@ -157,23 +136,26 @@ impl App {
 			frame.set_cursor_position((search_bar_rect.x + x + 2, search_bar_rect.y + 2 as u16));
 		}
 
-		let departure_board = departures_rect.inner(Margin::new(1, 1));
 		frame.render_widget(
 			DepartureList::from(&self.active_departures)
+				.with_focused(self.current_state == AppState::DepartureList)
 				.with_selected_index(self.selected_departure_index),
-			departure_board,
+			departures_rect,
 		);
-		self.list_containers_height = departure_board.height.max(1) as usize;
+		self.list_containers_height = (departures_rect.height - 2).max(1) as usize;
 
 		if let Some(selected_departure) = self.selected_departure_index {
 			let stops = self.active_departures[selected_departure].get_stops();
-			let stops_board = details_rect.inner(Margin::new(1, 1));
 			frame.render_widget(
 				StopList::from(&stops)
+					.with_focused(self.current_state == AppState::BrowseStops)
 					.with_selected_index(self.selected_stop_index)
 					.with_scroll_offset(self.stop_scroll_offset),
-				stops_board,
+				details_rect,
 			);
+		} else {
+			let details_dummy = Block::new().borders(Borders::ALL);
+			frame.render_widget(details_dummy, details_rect);
 		}
 	}
 
