@@ -14,8 +14,8 @@ use crate::styles;
 #[derive(PartialEq, Eq, Default)]
 enum AppState {
 	#[default]
-	DepartureList,
 	EditSearch,
+	DepartureList,
 	BrowseStops,
 }
 
@@ -44,8 +44,6 @@ impl App {
 
 	pub fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
 		loop {
-			self.active_departures = get_departures("Siemens");
-
 			terminal.draw(|frame| self.render(frame))?;
 
 			let event = event::read()?;
@@ -98,7 +96,15 @@ impl App {
 					},
 					AppState::EditSearch => match key.code {
 						KeyCode::Esc if key.kind == KeyEventKind::Press => {
-							self.current_state = AppState::DepartureList;
+							if !self.active_departures.is_empty() {
+								self.current_state = AppState::DepartureList;
+							}
+						}
+						KeyCode::Enter if key.kind == KeyEventKind::Press => {
+							self.initialize_departures();
+							if !self.active_departures.is_empty() {
+								self.current_state = AppState::DepartureList;
+							}
 						}
 						_ => {
 							self.stop_input.handle_event(&event);
@@ -181,6 +187,12 @@ impl App {
 
 	fn deselect_departure(&mut self) {
 		self.selected_departure_index = None;
+	}
+
+	fn initialize_departures(&mut self) {
+		self.active_departures = get_departures(self.stop_input.value());
+		self.selected_departure_index = None;
+		self.selected_stop_index = None;
 	}
 
 	fn initialize_browse_stops(&mut self, departure_index: usize) {
