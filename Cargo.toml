@@ -10,4 +10,5 @@ chrono = "0.4"
 color-eyre = "0.6"
 ratatui = "0.30"
 tui-input = "0.15"
+tokio-stream = "0.1"
 
