@@ -6,9 +6,9 @@ use ratatui::{DefaultTerminal, Frame};
 use tui_input::backend::crossterm::EventHandler;
 
 use crate::actions::Action;
-use crate::components::departure_list::DepartureList;
+use crate::components::departure_list::{DepartureList, DepartureListState};
 use crate::components::stop_list::StopList;
-use crate::entur_api_wrapper::departure_board::{Departure, get_departures};
+use crate::entur_api_wrapper::departure_board::get_departures;
 use crate::events::{Event, Events};
 use crate::styles;
 
@@ -22,8 +22,7 @@ enum AppState {
 
 pub struct App {
 	current_state: AppState,
-	active_departures: Vec<Departure>,
-	selected_departure_index: Option<usize>,
+	departure_list_state: DepartureListState,
 	stop_input: tui_input::Input,
 	selected_stop_index: Option<usize>,
 	stop_scroll_offset: usize,
@@ -35,9 +34,8 @@ impl App {
 	pub fn new() -> Self {
 		Self {
 			current_state: AppState::default(),
-			active_departures: vec![],
+			departure_list_state: DepartureListState::new(),
 			stop_input: tui_input::Input::default(),
-			selected_departure_index: None,
 			selected_stop_index: None,
 			stop_scroll_offset: 0,
 			list_containers_height: 1,
@@ -80,20 +78,20 @@ impl App {
 					self.should_quit = true;
 				}
 				Action::Cancel => {
-					self.deselect_departure();
+					self.departure_list_state.deselect();
 				}
 				Action::SelectSearch => {
 					self.current_state = AppState::EditSearch;
 				}
 				Action::MoveDown => {
-					self.select_next_departure();
+					self.departure_list_state.select_next();
 				}
 				Action::MoveUp => {
-					self.select_previous_departure();
+					self.departure_list_state.select_previous();
 				}
 				Action::Confirm => {
-					if let Some(index) = self.selected_departure_index {
-						self.initialize_browse_stops(index);
+					if self.departure_list_state.selected_departure().is_some() {
+						self.initialize_browse_stops();
 						self.current_state = AppState::BrowseStops;
 					}
 				}
@@ -116,13 +114,13 @@ impl App {
 			},
 			AppState::EditSearch => match action {
 				Action::Cancel => {
-					if !self.active_departures.is_empty() {
+					if !self.departure_list_state.is_empty() {
 						self.current_state = AppState::DepartureList;
 					}
 				}
 				Action::Confirm => {
 					self.initialize_departures();
-					if !self.active_departures.is_empty() {
+					if !self.departure_list_state.is_empty() {
 						self.current_state = AppState::DepartureList;
 					}
 				}
@@ -158,16 +156,15 @@ impl App {
 			frame.set_cursor_position((search_bar_rect.x + x + 2, search_bar_rect.y + 2 as u16));
 		}
 
-		frame.render_widget(
-			DepartureList::from(&self.active_departures)
-				.with_focused(self.current_state == AppState::DepartureList)
-				.with_selected_index(self.selected_departure_index),
+		frame.render_stateful_widget(
+			DepartureList::new().with_focused(self.current_state == AppState::DepartureList),
 			departures_rect,
+			&mut self.departure_list_state,
 		);
 		self.list_containers_height = (departures_rect.height - 2).max(1) as usize;
 
-		if let Some(selected_departure) = self.selected_departure_index {
-			let stops = self.active_departures[selected_departure].get_stops();
+		if let Some(departure) = self.departure_list_state.selected_departure() {
+			let stops = departure.get_stops();
 			frame.render_widget(
 				StopList::from(&stops)
 					.with_focused(self.current_state == AppState::BrowseStops)
@@ -181,49 +178,27 @@ impl App {
 		}
 	}
 
-	fn select_next_departure(&mut self) {
-		if let Some(index) = self.selected_departure_index {
-			if index + 1 < self.active_departures.len() {
-				self.selected_departure_index = Some(index + 1);
-			}
-		} else if !self.active_departures.is_empty() {
-			self.selected_departure_index = Some(0);
-		}
-	}
-
-	fn select_previous_departure(&mut self) {
-		if let Some(index) = self.selected_departure_index {
-			if index > 0 {
-				self.selected_departure_index = Some(index - 1);
-			}
-		} else if !self.active_departures.is_empty() {
-			self.selected_departure_index = Some(self.active_departures.len() - 1);
-		}
-	}
-
-	fn deselect_departure(&mut self) {
-		self.selected_departure_index = None;
-	}
-
 	fn initialize_departures(&mut self) {
-		self.active_departures = get_departures(self.stop_input.value());
-		self.selected_departure_index = None;
+		self.departure_list_state
+			.set_departures(get_departures(self.stop_input.value()));
 		self.selected_stop_index = None;
 	}
 
-	fn initialize_browse_stops(&mut self, departure_index: usize) {
-		let stops = self.active_departures[departure_index].get_stops();
-		let search_name = self.stop_input.value();
+	fn initialize_browse_stops(&mut self) {
+		if let Some(departure) = self.departure_list_state.selected_departure() {
+			let stops = departure.get_stops();
+			let search_name = self.stop_input.value();
 
-		let selected_index = stops.iter().position(|s| s.name == search_name).or(None);
+			let selected_index = stops.iter().position(|s| s.name == search_name).or(None);
 
-		self.selected_stop_index = selected_index;
-		self.stop_scroll_offset = 0;
+			self.selected_stop_index = selected_index;
+			self.stop_scroll_offset = 0;
+		}
 	}
 
 	fn select_next_stop(&mut self) {
-		if let Some(departure_index) = self.selected_departure_index {
-			let stops = self.active_departures[departure_index].get_stops();
+		if let Some(departure) = self.departure_list_state.selected_departure() {
+			let stops = departure.get_stops();
 
 			if let Some(index) = self.selected_stop_index {
 				if index + 1 < stops.len() {
@@ -237,8 +212,8 @@ impl App {
 	}
 
 	fn select_previous_stop(&mut self) {
-		if let Some(departure_index) = self.selected_departure_index {
-			let stops = self.active_departures[departure_index].get_stops();
+		if let Some(departure) = self.departure_list_state.selected_departure() {
+			let stops = departure.get_stops();
 
 			if let Some(index) = self.selected_stop_index {
 				if index > 0 {
