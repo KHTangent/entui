@@ -1,11 +1,11 @@
 use color_eyre::Result;
-use ratatui::crossterm::event::{Event as CrosstermEvent, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::layout::{Constraint, Layout};
 use ratatui::style::Style;
 use ratatui::widgets::{Block, Borders, Padding, Paragraph};
 use ratatui::{DefaultTerminal, Frame};
 use tui_input::backend::crossterm::EventHandler;
 
+use crate::actions::Action;
 use crate::components::departure_list::DepartureList;
 use crate::components::stop_list::StopList;
 use crate::entur_api_wrapper::departure_board::{Departure, get_departures};
@@ -52,78 +52,66 @@ impl App {
 					terminal.draw(|frame| self.render(frame))?;
 				}
 				Some(Event::Crossterm(event)) => {
-					if let CrosstermEvent::Key(key) = event {
-						if key.is_press()
-							&& key.modifiers == KeyModifiers::CONTROL
-							&& key.code == KeyCode::Char('c')
-						{
-							return Ok(());
-						}
-						match self.current_state {
-							AppState::DepartureList => match key.code {
-								KeyCode::Char('q') if key.kind == KeyEventKind::Press => {
-									return Ok(());
+					let action = Action::from_event(&event);
+					if action == Action::HardQuit {
+						return Ok(());
+					}
+					match self.current_state {
+						AppState::DepartureList => match action {
+							Action::Quit => {
+								return Ok(());
+							}
+							Action::Cancel => {
+								self.deselect_departure();
+							}
+							Action::SelectSearch => {
+								self.current_state = AppState::EditSearch;
+							}
+							Action::MoveDown => {
+								self.select_next_departure();
+							}
+							Action::MoveUp => {
+								self.select_previous_departure();
+							}
+							Action::Confirm => {
+								if let Some(index) = self.selected_departure_index {
+									self.initialize_browse_stops(index);
+									self.current_state = AppState::BrowseStops;
 								}
-								KeyCode::Char('e') if key.kind == KeyEventKind::Press => {
-									self.current_state = AppState::EditSearch;
-								}
-								KeyCode::Char('j') | KeyCode::Down
-									if key.kind == KeyEventKind::Press =>
-								{
-									self.select_next_departure();
-								}
-								KeyCode::Char('k') | KeyCode::Up
-									if key.kind == KeyEventKind::Press =>
-								{
-									self.select_previous_departure();
-								}
-								KeyCode::Esc if key.kind == KeyEventKind::Press => {
-									self.deselect_departure();
-								}
-								KeyCode::Enter if key.kind == KeyEventKind::Press => {
-									if let Some(index) = self.selected_departure_index {
-										self.initialize_browse_stops(index);
-										self.current_state = AppState::BrowseStops;
-									}
-								}
-								_ => {}
-							},
-							AppState::BrowseStops => match key.code {
-								KeyCode::Esc if key.kind == KeyEventKind::Press => {
+							}
+							_ => {}
+						},
+						AppState::BrowseStops => match action {
+							Action::Cancel => {
+								self.current_state = AppState::DepartureList;
+							}
+							Action::Quit => {
+								return Ok(());
+							}
+							Action::MoveDown => {
+								self.select_next_stop();
+							}
+							Action::MoveUp => {
+								self.select_previous_stop();
+							}
+							_ => {}
+						},
+						AppState::EditSearch => match action {
+							Action::Cancel => {
+								if !self.active_departures.is_empty() {
 									self.current_state = AppState::DepartureList;
 								}
-								KeyCode::Char('q') if key.kind == KeyEventKind::Press => {
-									return Ok(());
+							}
+							Action::Confirm => {
+								self.initialize_departures();
+								if !self.active_departures.is_empty() {
+									self.current_state = AppState::DepartureList;
 								}
-								KeyCode::Char('j') | KeyCode::Down
-									if key.kind == KeyEventKind::Press =>
-								{
-									self.select_next_stop();
-								}
-								KeyCode::Char('k') | KeyCode::Up
-									if key.kind == KeyEventKind::Press =>
-								{
-									self.select_previous_stop();
-								}
-								_ => {}
-							},
-							AppState::EditSearch => match key.code {
-								KeyCode::Esc if key.kind == KeyEventKind::Press => {
-									if !self.active_departures.is_empty() {
-										self.current_state = AppState::DepartureList;
-									}
-								}
-								KeyCode::Enter if key.kind == KeyEventKind::Press => {
-									self.initialize_departures();
-									if !self.active_departures.is_empty() {
-										self.current_state = AppState::DepartureList;
-									}
-								}
-								_ => {
-									self.stop_input.handle_event(&event);
-								}
-							},
-						}
+							}
+							_ => {
+								self.stop_input.handle_event(&event);
+							}
+						},
 					}
 				}
 				Some(Event::Error) => {}

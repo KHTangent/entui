@@ -3,6 +3,7 @@ use color_eyre::eyre::Context;
 
 use crate::app::App;
 
+mod actions;
 mod app;
 mod components;
 mod entur_api_wrapper;
