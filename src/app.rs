@@ -28,6 +28,7 @@ pub struct App {
 	selected_stop_index: Option<usize>,
 	stop_scroll_offset: usize,
 	list_containers_height: usize,
+	should_quit: bool,
 }
 
 impl App {
@@ -40,6 +41,7 @@ impl App {
 			selected_stop_index: None,
 			stop_scroll_offset: 0,
 			list_containers_height: 1,
+			should_quit: false,
 		}
 	}
 
@@ -53,70 +55,79 @@ impl App {
 				}
 				Some(Event::Crossterm(event)) => {
 					let action = Action::from_event(&event);
-					if action == Action::HardQuit {
-						return Ok(());
-					}
-					match self.current_state {
-						AppState::DepartureList => match action {
-							Action::Quit => {
-								return Ok(());
-							}
-							Action::Cancel => {
-								self.deselect_departure();
-							}
-							Action::SelectSearch => {
-								self.current_state = AppState::EditSearch;
-							}
-							Action::MoveDown => {
-								self.select_next_departure();
-							}
-							Action::MoveUp => {
-								self.select_previous_departure();
-							}
-							Action::Confirm => {
-								if let Some(index) = self.selected_departure_index {
-									self.initialize_browse_stops(index);
-									self.current_state = AppState::BrowseStops;
-								}
-							}
-							_ => {}
-						},
-						AppState::BrowseStops => match action {
-							Action::Cancel => {
-								self.current_state = AppState::DepartureList;
-							}
-							Action::Quit => {
-								return Ok(());
-							}
-							Action::MoveDown => {
-								self.select_next_stop();
-							}
-							Action::MoveUp => {
-								self.select_previous_stop();
-							}
-							_ => {}
-						},
-						AppState::EditSearch => match action {
-							Action::Cancel => {
-								if !self.active_departures.is_empty() {
-									self.current_state = AppState::DepartureList;
-								}
-							}
-							Action::Confirm => {
-								self.initialize_departures();
-								if !self.active_departures.is_empty() {
-									self.current_state = AppState::DepartureList;
-								}
-							}
-							_ => {
-								self.stop_input.handle_event(&event);
-							}
-						},
+					self.handle_action(action);
+					if self.current_state == AppState::EditSearch {
+						self.stop_input.handle_event(&event);
 					}
 				}
 				Some(Event::Error) => {}
 				None => todo!(),
 			}
+			if self.should_quit {
+				return Ok(());
+			}
+		}
+	}
+
+	fn handle_action(&mut self, action: Action) {
+		if action == Action::HardQuit {
+			self.should_quit = true;
+			return;
+		}
+		match self.current_state {
+			AppState::DepartureList => match action {
+				Action::Quit => {
+					self.should_quit = true;
+				}
+				Action::Cancel => {
+					self.deselect_departure();
+				}
+				Action::SelectSearch => {
+					self.current_state = AppState::EditSearch;
+				}
+				Action::MoveDown => {
+					self.select_next_departure();
+				}
+				Action::MoveUp => {
+					self.select_previous_departure();
+				}
+				Action::Confirm => {
+					if let Some(index) = self.selected_departure_index {
+						self.initialize_browse_stops(index);
+						self.current_state = AppState::BrowseStops;
+					}
+				}
+				_ => {}
+			},
+			AppState::BrowseStops => match action {
+				Action::Cancel => {
+					self.current_state = AppState::DepartureList;
+				}
+				Action::Quit => {
+					self.should_quit = true;
+				}
+				Action::MoveDown => {
+					self.select_next_stop();
+				}
+				Action::MoveUp => {
+					self.select_previous_stop();
+				}
+				_ => {}
+			},
+			AppState::EditSearch => match action {
+				Action::Cancel => {
+					if !self.active_departures.is_empty() {
+						self.current_state = AppState::DepartureList;
+					}
+				}
+				Action::Confirm => {
+					self.initialize_departures();
+					if !self.active_departures.is_empty() {
+						self.current_state = AppState::DepartureList;
+					}
+				}
+				_ => {}
+			},
 		}
 	}
 
