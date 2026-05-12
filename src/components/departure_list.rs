@@ -31,6 +31,11 @@ impl DepartureListState {
 		self.scroll_offset = 0;
 	}
 
+	pub fn set_selected_index(&mut self, index: Option<usize>) {
+		self.selected_index = index;
+		self.scroll_offset = 0;
+	}
+
 	pub fn clear(&mut self) {
 		self.departures.clear();
 		self.selected_index = None;

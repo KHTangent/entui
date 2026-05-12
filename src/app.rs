@@ -7,7 +7,7 @@ use tui_input::backend::crossterm::EventHandler;
 
 use crate::actions::Action;
 use crate::components::departure_list::{DepartureList, DepartureListState};
-use crate::components::stop_list::StopList;
+use crate::components::stop_list::{StopList, StopListState};
 use crate::entur_api_wrapper::departure_board::get_departures;
 use crate::events::{Event, Events};
 use crate::styles;
@@ -23,10 +23,8 @@ enum AppState {
 pub struct App {
 	current_state: AppState,
 	departure_list_state: DepartureListState,
+	stop_list_state: StopListState,
 	stop_input: tui_input::Input,
-	selected_stop_index: Option<usize>,
-	stop_scroll_offset: usize,
-	list_containers_height: usize,
 	should_quit: bool,
 }
 
@@ -35,10 +33,8 @@ impl App {
 		Self {
 			current_state: AppState::default(),
 			departure_list_state: DepartureListState::new(),
+			stop_list_state: StopListState::new(),
 			stop_input: tui_input::Input::default(),
-			selected_stop_index: None,
-			stop_scroll_offset: 0,
-			list_containers_height: 1,
 			should_quit: false,
 		}
 	}
@@ -79,6 +75,7 @@ impl App {
 				}
 				Action::Cancel => {
 					self.departure_list_state.deselect();
+					self.stop_list_state.clear();
 				}
 				Action::SelectSearch => {
 					self.current_state = AppState::EditSearch;
@@ -105,10 +102,10 @@ impl App {
 					self.should_quit = true;
 				}
 				Action::MoveDown => {
-					self.select_next_stop();
+					self.stop_list_state.select_next();
 				}
 				Action::MoveUp => {
-					self.select_previous_stop();
+					self.stop_list_state.select_previous();
 				}
 				_ => {}
 			},
@@ -161,16 +158,12 @@ impl App {
 			departures_rect,
 			&mut self.departure_list_state,
 		);
-		self.list_containers_height = (departures_rect.height - 2).max(1) as usize;
 
-		if let Some(departure) = self.departure_list_state.selected_departure() {
-			let stops = departure.get_stops();
-			frame.render_widget(
-				StopList::from(&stops)
-					.with_focused(self.current_state == AppState::BrowseStops)
-					.with_selected_index(self.selected_stop_index)
-					.with_scroll_offset(self.stop_scroll_offset),
+		if self.departure_list_state.selected_departure().is_some() {
+			frame.render_stateful_widget(
+				StopList::new().with_focused(self.current_state == AppState::BrowseStops),
 				details_rect,
+				&mut self.stop_list_state,
 			);
 		} else {
 			let details_dummy = Block::new().borders(Borders::ALL);
@@ -181,7 +174,7 @@ impl App {
 	fn initialize_departures(&mut self) {
 		self.departure_list_state
 			.set_departures(get_departures(self.stop_input.value()));
-		self.selected_stop_index = None;
+		self.stop_list_state.clear();
 	}
 
 	fn initialize_browse_stops(&mut self) {
@@ -191,56 +184,8 @@ impl App {
 
 			let selected_index = stops.iter().position(|s| s.name == search_name).or(None);
 
-			self.selected_stop_index = selected_index;
-			self.stop_scroll_offset = 0;
-		}
-	}
-
-	fn select_next_stop(&mut self) {
-		if let Some(departure) = self.departure_list_state.selected_departure() {
-			let stops = departure.get_stops();
-
-			if let Some(index) = self.selected_stop_index {
-				if index + 1 < stops.len() {
-					self.selected_stop_index = Some(index + 1);
-					self.adjust_stop_scroll(stops.len());
-				}
-			} else if !stops.is_empty() {
-				self.selected_stop_index = Some(0);
-			}
-		}
-	}
-
-	fn select_previous_stop(&mut self) {
-		if let Some(departure) = self.departure_list_state.selected_departure() {
-			let stops = departure.get_stops();
-
-			if let Some(index) = self.selected_stop_index {
-				if index > 0 {
-					self.selected_stop_index = Some(index - 1);
-					self.adjust_stop_scroll(stops.len());
-				}
-			} else if !stops.is_empty() {
-				self.selected_stop_index = Some(stops.len() - 1);
-			}
-		}
-	}
-
-	fn adjust_stop_scroll(&mut self, total_stops: usize) {
-		if let Some(selected) = self.selected_stop_index {
-			let visible_height = self.list_containers_height;
-
-			if selected < self.stop_scroll_offset {
-				// Selected is above visible area, scroll up
-				self.stop_scroll_offset = selected;
-			} else if selected >= self.stop_scroll_offset + visible_height {
-				// Selected is below visible area, scroll down
-				self.stop_scroll_offset = selected.saturating_sub(visible_height - 1);
-			}
-
-			// Ensure scroll offset doesn't go beyond bounds
-			let max_offset = total_stops.saturating_sub(visible_height);
-			self.stop_scroll_offset = self.stop_scroll_offset.min(max_offset);
+			self.stop_list_state.set_stops(stops);
+			self.stop_list_state.set_selected_index(selected_index);
 		}
 	}
 }
