@@ -1,4 +1,7 @@
+use std::time::Duration;
+
 use chrono::{Local, TimeDelta};
+use tokio::time::sleep;
 
 #[derive(Debug, Clone)]
 pub struct Departure {
@@ -14,7 +17,8 @@ pub struct Stop {
 }
 
 impl Departure {
-	pub fn get_stops(&self) -> Vec<Stop> {
+	pub async fn get_stops(&self) -> Vec<Stop> {
+		sleep(Duration::from_millis(250)).await;
 		[
 			"Ratesvingen",
 			"Fossegrenda",
@@ -67,7 +71,8 @@ impl Departure {
 	}
 }
 
-pub fn get_departures(from: &str) -> Vec<Departure> {
+pub async fn get_departures(from: &str) -> Vec<Departure> {
+	sleep(Duration::from_millis(250)).await;
 	match from {
 		"Siemens" => {
 			let mut v: Vec<Departure> = Vec::with_capacity(10);

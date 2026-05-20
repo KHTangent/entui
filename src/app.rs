@@ -3,12 +3,13 @@ use ratatui::layout::{Constraint, Layout};
 use ratatui::style::Style;
 use ratatui::widgets::{Block, Borders, Padding, Paragraph};
 use ratatui::{DefaultTerminal, Frame};
+use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 use tui_input::backend::crossterm::EventHandler;
 
 use crate::actions::Action;
 use crate::components::departure_list::{DepartureList, DepartureListState};
 use crate::components::stop_list::{StopList, StopListState};
-use crate::entur_api_wrapper::departure_board::get_departures;
+use crate::entur_api_wrapper::departure_board::{Departure, Stop, get_departures};
 use crate::events::{Event, Events};
 use crate::styles;
 
@@ -20,12 +21,19 @@ enum AppState {
 	BrowseStops,
 }
 
+#[derive(Clone, Debug)]
+enum FetchResult {
+	Departures(Vec<Departure>),
+	Stops(Vec<Stop>, String),
+}
+
 pub struct App {
 	current_state: AppState,
 	departure_list_state: DepartureListState,
 	stop_list_state: StopListState,
 	stop_input: tui_input::Input,
 	should_quit: bool,
+	fetch_tx: Option<UnboundedSender<FetchResult>>,
 }
 
 impl App {
@@ -36,26 +44,45 @@ impl App {
 			stop_list_state: StopListState::new(),
 			stop_input: tui_input::Input::default(),
 			should_quit: false,
+			fetch_tx: None,
 		}
 	}
 
 	#[tokio::main]
 	pub async fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
+		let (fetch_tx, mut fetch_rx) = unbounded_channel();
+		self.fetch_tx = Some(fetch_tx);
 		let mut events = Events::new();
 		loop {
-			match events.next().await {
-				Some(Event::Render) => {
-					terminal.draw(|frame| self.render(frame))?;
-				}
-				Some(Event::Crossterm(event)) => {
-					let action = Action::from_event(&event);
-					self.handle_action(action);
-					if self.current_state == AppState::EditSearch {
-						self.stop_input.handle_event(&event);
+			tokio::select! {
+				Some(event) = events.next() => {
+					match event {
+						Event::Render => {
+							terminal.draw(|frame| self.render(frame))?;
+						}
+						Event::Crossterm(event) => {
+							let action = Action::from_event(&event);
+							self.handle_action(action);
+							if self.current_state == AppState::EditSearch {
+								self.stop_input.handle_event(&event);
+							}
+						}
+						Event::Error => {}
 					}
 				}
-				Some(Event::Error) => {}
-				None => todo!(),
+				Some(result) = fetch_rx.recv() => {
+					match result {
+						FetchResult::Departures(departures) => {
+							self.departure_list_state.set_departures(departures);
+							self.stop_list_state.clear();
+						}
+						FetchResult::Stops(stops, search_name) => {
+							let selected_index = stops.iter().position(|s| s.name == search_name).or(None);
+							self.stop_list_state.set_stops(stops);
+							self.stop_list_state.set_selected_index(selected_index);
+						}
+					}
+				}
 			}
 			if self.should_quit {
 				return Ok(());
@@ -88,7 +115,7 @@ impl App {
 				}
 				Action::Confirm => {
 					if self.departure_list_state.selected_departure().is_some() {
-						self.initialize_browse_stops();
+						self.populate_stops();
 						self.current_state = AppState::BrowseStops;
 					}
 				}
@@ -116,10 +143,8 @@ impl App {
 					}
 				}
 				Action::Confirm => {
-					self.initialize_departures();
-					if !self.departure_list_state.is_empty() {
-						self.current_state = AppState::DepartureList;
-					}
+					self.populate_departures();
+					self.current_state = AppState::DepartureList;
 				}
 				_ => {}
 			},
@@ -171,21 +196,27 @@ impl App {
 		}
 	}
 
-	fn initialize_departures(&mut self) {
-		self.departure_list_state
-			.set_departures(get_departures(self.stop_input.value()));
-		self.stop_list_state.clear();
+	fn populate_departures(&mut self) {
+		let from = self.stop_input.value().to_string();
+		if let Some(tx) = &self.fetch_tx {
+			let tx = tx.clone();
+			tokio::spawn(async move {
+				let departures = get_departures(&from).await;
+				let _ = tx.send(FetchResult::Departures(departures));
+			});
+		}
 	}
 
-	fn initialize_browse_stops(&mut self) {
-		if let Some(departure) = self.departure_list_state.selected_departure() {
-			let stops = departure.get_stops();
-			let search_name = self.stop_input.value();
-
-			let selected_index = stops.iter().position(|s| s.name == search_name).or(None);
-
-			self.stop_list_state.set_stops(stops);
-			self.stop_list_state.set_selected_index(selected_index);
+	fn populate_stops(&mut self) {
+		if let Some(departure) = self.departure_list_state.selected_departure().cloned() {
+			let search_name = self.stop_input.value().to_string();
+			if let Some(tx) = &self.fetch_tx {
+				let tx = tx.clone();
+				tokio::spawn(async move {
+					let stops = departure.get_stops().await;
+					let _ = tx.send(FetchResult::Stops(stops, search_name));
+				});
+			}
 		}
 	}
 }

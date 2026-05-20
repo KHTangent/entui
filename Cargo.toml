@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-tokio = { version = "1", features = [ "macros", "sync", "rt", "rt-multi-thread" ] }
+tokio = { version = "1", features = [ "macros", "sync", "rt", "rt-multi-thread", "time" ] }
 crossterm = { version = "0.29", features = [ "event-stream" ] }
 chrono = "0.4"
 color-eyre = "0.6"
