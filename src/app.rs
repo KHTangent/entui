@@ -1,7 +1,7 @@
 use color_eyre::Result;
-use ratatui::layout::{Constraint, Layout};
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
-use ratatui::widgets::{Block, Borders, Padding, Paragraph};
+use ratatui::widgets::{Block, Borders, Clear, Padding, Paragraph};
 use ratatui::{DefaultTerminal, Frame};
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 use tui_input::backend::crossterm::EventHandler;
@@ -9,9 +9,12 @@ use tui_input::backend::crossterm::EventHandler;
 use crate::actions::Action;
 use crate::components::departure_list::{DepartureList, DepartureListState};
 use crate::components::stop_list::{StopList, StopListState};
+use crate::components::suggestion_list::{SuggestionList, SuggestionListState};
 use crate::entur_api_wrapper::departure_board::{Departure, Stop, get_departures};
 use crate::events::{Event, Events};
 use crate::styles;
+
+const MAX_SUGGESTION_ROWS: u16 = 10;
 
 #[derive(PartialEq, Eq, Default)]
 enum AppState {
@@ -32,20 +35,37 @@ pub struct App {
 	departure_list_state: DepartureListState,
 	stop_list_state: StopListState,
 	stop_input: tui_input::Input,
+	suggestion_list_state: SuggestionListState,
 	should_quit: bool,
 	fetch_tx: Option<UnboundedSender<FetchResult>>,
 }
 
 impl App {
 	pub fn new() -> Self {
-		Self {
+		let mut app = Self {
 			current_state: AppState::default(),
 			departure_list_state: DepartureListState::new(),
 			stop_list_state: StopListState::new(),
 			stop_input: tui_input::Input::default(),
+			suggestion_list_state: SuggestionListState::new(),
 			should_quit: false,
 			fetch_tx: None,
-		}
+		};
+		app.suggestion_list_state.set_suggestions(vec![
+			"Siemens".to_string(),
+			"Trondheim S".to_string(),
+			"Nidarosdomen".to_string(),
+			"Lerkendal".to_string(),
+			"Strindheim".to_string(),
+			"Sæterbakken".to_string(),
+			"Studentersamfundet".to_string(),
+			"Prinsens gate".to_string(),
+			"Nidarvoll skole".to_string(),
+			"Astronomvegen".to_string(),
+			"Buran 2".to_string(),
+			"Rønningsbakken".to_string(),
+		]);
+		app
 	}
 
 	#[tokio::main]
@@ -194,6 +214,27 @@ impl App {
 			let details_dummy = Block::new().borders(Borders::ALL);
 			frame.render_widget(details_dummy, details_rect);
 		}
+
+		if self.current_state == AppState::EditSearch && !self.stop_input.value().is_empty() {
+			self.render_suggestions(frame, search_bar_rect);
+		}
+	}
+
+	fn render_suggestions(&mut self, frame: &mut Frame, anchor: Rect) {
+		let row_count = (self.suggestion_list_state.len() as u16).min(MAX_SUGGESTION_ROWS);
+		let popup_height = row_count.saturating_add(2);
+		let popup_rect = Rect {
+			x: anchor.x,
+			y: anchor.y.saturating_sub(popup_height),
+			width: anchor.width,
+			height: popup_height,
+		};
+		frame.render_widget(Clear, popup_rect);
+		frame.render_stateful_widget(
+			SuggestionList::new().with_focused(true),
+			popup_rect,
+			&mut self.suggestion_list_state,
+		);
 	}
 
 	fn populate_departures(&mut self) {
