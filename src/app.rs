@@ -166,9 +166,22 @@ impl App {
 						self.current_state = AppState::DepartureList;
 					}
 				}
+				Action::MoveDown => {
+					self.suggestion_list_state.select_next();
+				}
+				Action::MoveUp => {
+					self.suggestion_list_state.select_previous();
+				}
 				Action::Confirm => {
-					self.populate_departures();
-					self.current_state = AppState::DepartureList;
+					if let Some(suggestion) =
+						self.suggestion_list_state.selected_suggestion().cloned()
+					{
+						self.stop_input = tui_input::Input::new(suggestion);
+						self.suggestion_list_state.deselect();
+					} else {
+						self.populate_departures();
+						self.current_state = AppState::DepartureList;
+					}
 				}
 				_ => {}
 			},
