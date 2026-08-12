@@ -16,8 +16,8 @@ use crate::styles;
 
 const MAX_SUGGESTION_ROWS: u16 = 10;
 
-#[derive(PartialEq, Eq, Default)]
-enum AppState {
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+pub enum AppState {
 	#[default]
 	EditSearch,
 	DepartureList,
@@ -85,7 +85,7 @@ impl App {
 							terminal.draw(|frame| self.render(frame))?;
 						}
 						Event::Crossterm(event) => {
-							let action = Action::from_event(&event);
+							let action = Action::from_event(&event, self.current_state);
 							self.handle_action(action);
 							if self.current_state == AppState::EditSearch {
 								self.stop_input.handle_event(&event);
