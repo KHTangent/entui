@@ -70,6 +70,10 @@ impl App {
 
 	#[tokio::main]
 	pub async fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
+		self.run_inner(terminal).await
+	}
+
+	async fn run_inner(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
 		let (fetch_tx, mut fetch_rx) = unbounded_channel();
 		self.fetch_tx = Some(fetch_tx);
 		let mut events = Events::new();
