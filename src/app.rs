@@ -11,6 +11,7 @@ use crate::components::departure_list::{DepartureList, DepartureListState};
 use crate::components::stop_list::{StopList, StopListState};
 use crate::components::suggestion_list::{SuggestionList, SuggestionListState};
 use crate::entur_api_wrapper::departure_board::{Departure, Stop, get_departures};
+use crate::entur_api_wrapper::stop_register::StopSearchResult;
 use crate::events::{Event, Events};
 use crate::styles;
 
@@ -26,6 +27,7 @@ pub enum AppState {
 
 #[derive(Clone, Debug)]
 enum FetchResult {
+	Autocomplete(Vec<StopSearchResult>),
 	Departures(Vec<Departure>),
 	Stops(Vec<Stop>, String),
 }
@@ -42,7 +44,7 @@ pub struct App {
 
 impl App {
 	pub fn new() -> Self {
-		let mut app = Self {
+		let app = Self {
 			current_state: AppState::default(),
 			departure_list_state: DepartureListState::new(),
 			stop_list_state: StopListState::new(),
@@ -51,20 +53,6 @@ impl App {
 			should_quit: false,
 			fetch_tx: None,
 		};
-		app.suggestion_list_state.set_suggestions(vec![
-			"Siemens".to_string(),
-			"Trondheim S".to_string(),
-			"Nidarosdomen".to_string(),
-			"Lerkendal".to_string(),
-			"Strindheim".to_string(),
-			"Sæterbakken".to_string(),
-			"Studentersamfundet".to_string(),
-			"Prinsens gate".to_string(),
-			"Nidarvoll skole".to_string(),
-			"Astronomvegen".to_string(),
-			"Buran 2".to_string(),
-			"Rønningsbakken".to_string(),
-		]);
 		app
 	}
 
@@ -99,6 +87,9 @@ impl App {
 							let selected_index = stops.iter().position(|s| s.name == search_name).or(None);
 							self.stop_list_state.set_stops(stops);
 							self.stop_list_state.set_selected_index(selected_index);
+						}
+						FetchResult::Autocomplete(results) => {
+							self.suggestion_list_state.set_suggestions(results);
 						}
 					}
 				}
@@ -167,11 +158,14 @@ impl App {
 				Action::MoveUp => {
 					self.suggestion_list_state.select_previous();
 				}
+				Action::ManualSearch => {
+					self.populate_autocomplete();
+				}
 				Action::Confirm => {
 					if let Some(suggestion) =
 						self.suggestion_list_state.selected_suggestion().cloned()
 					{
-						self.stop_input = tui_input::Input::new(suggestion);
+						self.stop_input = tui_input::Input::new(suggestion.label);
 						self.populate_departures();
 						self.current_state = AppState::DepartureList;
 					}
@@ -245,6 +239,17 @@ impl App {
 			popup_rect,
 			&mut self.suggestion_list_state,
 		);
+	}
+
+	fn populate_autocomplete(&mut self) {
+		let query = self.stop_input.value().to_string();
+		if let Some(tx) = &self.fetch_tx {
+			let tx = tx.clone();
+			tokio::spawn(async move {
+				let results = StopSearchResult::search(&query).await;
+				let _ = tx.send(FetchResult::Autocomplete(results));
+			});
+		}
 	}
 
 	fn populate_departures(&mut self) {

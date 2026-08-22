@@ -8,6 +8,7 @@ pub enum Action {
 	MoveDown,
 	MoveUp,
 	SelectSearch,
+	ManualSearch,
 	Cancel,
 	Confirm,
 	Quit,
@@ -39,6 +40,7 @@ impl Action {
 
 					KeyCode::Char('e') => Action::SelectSearch,
 					KeyCode::Enter => Action::Confirm,
+					KeyCode::Tab => Action::ManualSearch,
 					KeyCode::Esc => Action::Cancel,
 					_ => Action::None,
 				}

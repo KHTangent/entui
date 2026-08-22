@@ -13,4 +13,4 @@ tui-input = "0.15"
 tokio-stream = "0.1"
 serde = { version = "1", features = [ "std", "derive" ] }
 serde_json = { version = "1", features = [ "std" ] }
-
+reqwest = { version = "0.13", features = [ "json", "query" ] }

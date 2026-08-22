@@ -5,10 +5,10 @@ use ratatui::{
 	widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
 };
 
-use crate::styles;
+use crate::{entur_api_wrapper::stop_register::StopSearchResult, styles};
 
 pub struct SuggestionListState {
-	suggestions: Vec<String>,
+	suggestions: Vec<StopSearchResult>,
 	selected_index: Option<usize>,
 	scroll_offset: usize,
 }
@@ -22,7 +22,7 @@ impl SuggestionListState {
 		}
 	}
 
-	pub fn set_suggestions(&mut self, suggestions: Vec<String>) {
+	pub fn set_suggestions(&mut self, suggestions: Vec<StopSearchResult>) {
 		self.suggestions = suggestions;
 		self.selected_index = (self.suggestions.len() > 0).then_some(0);
 		self.scroll_offset = 0;
@@ -48,7 +48,7 @@ impl SuggestionListState {
 		}
 	}
 
-	pub fn selected_suggestion(&self) -> Option<&String> {
+	pub fn selected_suggestion(&self) -> Option<&StopSearchResult> {
 		self.selected_index
 			.and_then(|idx| self.suggestions.get(idx))
 	}
@@ -143,7 +143,7 @@ impl StatefulWidget for SuggestionList {
 					.style(Style::new().bg(Color::DarkGray))
 					.render(area, buf);
 			}
-			Paragraph::new(suggestion.as_str()).render(area, buf);
+			Paragraph::new(suggestion.label.as_str()).render(area, buf);
 		}
 	}
 }
