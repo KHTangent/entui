@@ -24,7 +24,7 @@ impl SuggestionListState {
 
 	pub fn set_suggestions(&mut self, suggestions: Vec<String>) {
 		self.suggestions = suggestions;
-		self.selected_index = None;
+		self.selected_index = (self.suggestions.len() > 0).then_some(0);
 		self.scroll_offset = 0;
 	}
 
@@ -46,11 +46,6 @@ impl SuggestionListState {
 		} else if !self.suggestions.is_empty() {
 			self.selected_index = Some(self.suggestions.len() - 1);
 		}
-	}
-
-	pub fn deselect(&mut self) {
-		self.selected_index = None;
-		self.scroll_offset = 0;
 	}
 
 	pub fn selected_suggestion(&self) -> Option<&String> {

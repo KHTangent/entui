@@ -172,8 +172,6 @@ impl App {
 						self.suggestion_list_state.selected_suggestion().cloned()
 					{
 						self.stop_input = tui_input::Input::new(suggestion);
-						self.suggestion_list_state.deselect();
-					} else {
 						self.populate_departures();
 						self.current_state = AppState::DepartureList;
 					}
