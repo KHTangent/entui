@@ -11,8 +11,12 @@ mod events;
 mod styles;
 mod utils;
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
 	color_eyre::install()?;
 	let mut app = App::new();
-	ratatui::run(|terminal| app.run(terminal)).context("failed to run app")
+	let mut terminal = ratatui::init();
+	let result = app.run(&mut terminal).await.context("failed to run app");
+	ratatui::restore();
+	result
 }
