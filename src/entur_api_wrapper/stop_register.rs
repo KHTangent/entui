@@ -1,4 +1,4 @@
-use crate::entur_api_wrapper::api;
+use crate::entur_api_wrapper::{api, error::ApiResult};
 
 #[derive(Debug, Clone)]
 pub struct StopSearchResult {
@@ -7,10 +7,10 @@ pub struct StopSearchResult {
 }
 
 impl StopSearchResult {
-	pub async fn search(query: &str) -> Vec<Self> {
+	pub async fn search(query: &str) -> ApiResult<Vec<Self>> {
 		let client = reqwest::Client::new();
-		let result = api::Geocoder::autocomplete(&client, query).await.unwrap();
-		result
+		let result = api::Geocoder::autocomplete(&client, query).await?;
+		Ok(result
 			.features
 			.into_iter()
 			.map(|feature| StopSearchResult {
@@ -21,6 +21,6 @@ impl StopSearchResult {
 				)
 				.to_string(),
 			})
-			.collect()
+			.collect())
 	}
 }

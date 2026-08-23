@@ -11,6 +11,7 @@ use crate::components::departure_list::{DepartureList, DepartureListState};
 use crate::components::stop_list::{StopList, StopListState};
 use crate::components::suggestion_list::{SuggestionList, SuggestionListState};
 use crate::entur_api_wrapper::departure_board::{Departure, Stop, get_departures};
+use crate::entur_api_wrapper::error::ApiError;
 use crate::entur_api_wrapper::stop_register::StopSearchResult;
 use crate::events::{Event, Events};
 use crate::styles;
@@ -30,6 +31,7 @@ enum FetchResult {
 	Autocomplete(Vec<StopSearchResult>),
 	Departures(Vec<Departure>),
 	Stops(Vec<Stop>, String),
+	Error(ApiError),
 }
 
 pub struct App {
@@ -91,6 +93,7 @@ impl App {
 						FetchResult::Autocomplete(results) => {
 							self.suggestion_list_state.set_suggestions(results);
 						}
+						FetchResult::Error(_) => todo!(),
 					}
 				}
 			}
@@ -247,7 +250,10 @@ impl App {
 			let tx = tx.clone();
 			tokio::spawn(async move {
 				let results = StopSearchResult::search(&query).await;
-				let _ = tx.send(FetchResult::Autocomplete(results));
+				let _ = match results {
+					Ok(results) => tx.send(FetchResult::Autocomplete(results)),
+					Err(e) => tx.send(FetchResult::Error(e)),
+				};
 			});
 		}
 	}
