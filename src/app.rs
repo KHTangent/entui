@@ -72,7 +72,7 @@ impl App {
 						Event::Crossterm(event) => {
 							let action = Action::from_event(&event, self.current_state);
 							self.handle_action(action);
-							if self.current_state == AppState::EditSearch {
+							if self.current_state == AppState::EditSearch && action != Action::SelectSearch {
 								self.stop_input.handle_event(&event);
 							}
 						}
