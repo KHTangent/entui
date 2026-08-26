@@ -1,12 +1,12 @@
 #![allow(dead_code)]
-use std::fmt;
+use std::{error::Error, fmt};
 
 pub type ApiResult<T> = Result<T, ApiError>;
 
 #[derive(fmt::Debug, Clone)]
 pub struct ApiError {
 	pub kind: ApiErrorKind,
-	message: String,
+	pub message: String,
 }
 
 #[derive(fmt::Debug, Clone)]
@@ -36,6 +36,12 @@ impl fmt::Display for ApiError {
 
 impl From<reqwest::Error> for ApiError {
 	fn from(value: reqwest::Error) -> Self {
+		if !value.is_status() {
+			return Self {
+				kind: ApiErrorKind::BadRequest,
+				message: value.source().unwrap_or_else(|| &value).to_string(),
+			};
+		}
 		use reqwest::StatusCode;
 		match value.status() {
 			Some(StatusCode::BAD_REQUEST) => Self::bad_request(value.to_string()),
@@ -46,7 +52,7 @@ impl From<reqwest::Error> for ApiError {
 			Some(_) => Self::bad_request(value.to_string()),
 			None => Self {
 				kind: ApiErrorKind::NoResponse,
-				message: String::new(),
+				message: value.to_string(),
 			},
 		}
 	}

@@ -101,7 +101,7 @@ impl App {
 						FetchResult::Error(e) => {
 							self.active_errors.push_back((
 								format!("{:?}", e.kind).to_string(),
-								format!("{}", e).to_string(),
+								e.message,
 							));
 						},
 					}
@@ -243,7 +243,7 @@ impl App {
 		if let Some((error_title, error_description)) = self.active_errors.front() {
 			let error_area = frame.area().centered(
 				Constraint::Length(error_description.len() as u16 + 6),
-				Constraint::Length(5),
+				Constraint::Length(7),
 			);
 			let error_paragraph = Paragraph::new(error_description.as_str()).block(
 				Block::default()
