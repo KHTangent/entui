@@ -5,12 +5,12 @@ pub type ApiResult<T> = Result<T, ApiError>;
 
 #[derive(fmt::Debug, Clone)]
 pub struct ApiError {
-	kind: ApiErrorKind,
+	pub kind: ApiErrorKind,
 	message: String,
 }
 
 #[derive(fmt::Debug, Clone)]
-enum ApiErrorKind {
+pub enum ApiErrorKind {
 	NoResponse,
 	BadRequest,
 	Unauthorized,

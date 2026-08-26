@@ -1,6 +1,9 @@
+use std::collections::VecDeque;
+
 use color_eyre::Result;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
+use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Clear, Padding, Paragraph};
 use ratatui::{DefaultTerminal, Frame};
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
@@ -38,6 +41,7 @@ pub struct App {
 	current_state: AppState,
 	departure_list_state: DepartureListState,
 	stop_list_state: StopListState,
+	active_errors: VecDeque<(String, String)>,
 	stop_input: tui_input::Input,
 	suggestion_list_state: SuggestionListState,
 	should_quit: bool,
@@ -50,6 +54,7 @@ impl App {
 			current_state: AppState::default(),
 			departure_list_state: DepartureListState::new(),
 			stop_list_state: StopListState::new(),
+			active_errors: VecDeque::new(),
 			stop_input: tui_input::Input::default(),
 			suggestion_list_state: SuggestionListState::new(),
 			should_quit: false,
@@ -93,7 +98,12 @@ impl App {
 						FetchResult::Autocomplete(results) => {
 							self.suggestion_list_state.set_suggestions(results);
 						}
-						FetchResult::Error(_) => todo!(),
+						FetchResult::Error(e) => {
+							self.active_errors.push_back((
+								format!("{:?}", e.kind).to_string(),
+								format!("{}", e).to_string(),
+							));
+						},
 					}
 				}
 			}
@@ -106,6 +116,10 @@ impl App {
 	fn handle_action(&mut self, action: Action) {
 		if action == Action::HardQuit {
 			self.should_quit = true;
+			return;
+		}
+		if self.active_errors.len() > 0 && action == Action::Confirm {
+			self.active_errors.pop_front();
 			return;
 		}
 		match self.current_state {
@@ -224,6 +238,23 @@ impl App {
 
 		if self.current_state == AppState::EditSearch && !self.stop_input.value().is_empty() {
 			self.render_suggestions(frame, search_bar_rect);
+		}
+
+		if let Some((error_title, error_description)) = self.active_errors.front() {
+			let error_area = frame.area().centered(
+				Constraint::Length(error_description.len() as u16 + 6),
+				Constraint::Length(5),
+			);
+			let error_paragraph = Paragraph::new(error_description.as_str()).block(
+				Block::default()
+					.borders(Borders::ALL)
+					.padding(Padding::uniform(2))
+					.border_style(Style::new().fg(styles::ACTIVE_COLOR))
+					.title_top(error_title.as_str())
+					.title_bottom(Line::from("<Enter>").centered()),
+			);
+			frame.render_widget(Clear, error_area);
+			frame.render_widget(error_paragraph, error_area);
 		}
 	}
 
