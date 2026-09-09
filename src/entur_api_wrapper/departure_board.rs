@@ -3,6 +3,8 @@ use std::time::Duration;
 use chrono::{Local, TimeDelta};
 use tokio::time::sleep;
 
+use crate::entur_api_wrapper::{api, error::ApiResult};
+
 #[derive(Debug, Clone)]
 pub struct Departure {
 	pub line: String,
@@ -71,20 +73,22 @@ impl Departure {
 	}
 }
 
-pub async fn get_departures(from: &str) -> Vec<Departure> {
-	sleep(Duration::from_millis(250)).await;
-	match from {
-		"Siemens" => {
-			let mut v: Vec<Departure> = Vec::with_capacity(10);
-			for i in 0..10 {
-				v.push(Departure {
-					line: "10".to_string(),
-					destination: "Sæterbakken via Sentrum".to_string(),
-					time: Local::now() + TimeDelta::minutes(5 * i),
-				});
-			}
-			v
-		}
-		_ => vec![],
-	}
+pub async fn get_departures(from: &str) -> ApiResult<Vec<Departure>> {
+	let client = reqwest::Client::new();
+	let result: Vec<Departure> = api::JourneyPlanner::get_departures(&client, from)
+		.await?
+		.data
+		.stop_place
+		.estimated_calls
+		.into_iter()
+		.map(|call| Departure {
+			destination: call.destination_display.front_text,
+			line: call.service_journey.journey_pattern.line.name,
+			time: call
+				.expected_departure_time
+				.parse()
+				.unwrap_or_else(|_| Local::now()),
+		})
+		.collect();
+	Ok(result)
 }

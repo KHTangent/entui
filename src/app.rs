@@ -43,6 +43,7 @@ pub struct App {
 	stop_list_state: StopListState,
 	active_errors: VecDeque<(String, String)>,
 	stop_input: tui_input::Input,
+	selected_stop_id: Option<String>,
 	suggestion_list_state: SuggestionListState,
 	should_quit: bool,
 	fetch_tx: Option<UnboundedSender<FetchResult>>,
@@ -55,6 +56,7 @@ impl App {
 			departure_list_state: DepartureListState::new(),
 			stop_list_state: StopListState::new(),
 			active_errors: VecDeque::new(),
+			selected_stop_id: None,
 			stop_input: tui_input::Input::default(),
 			suggestion_list_state: SuggestionListState::new(),
 			should_quit: false,
@@ -183,6 +185,7 @@ impl App {
 						self.suggestion_list_state.selected_suggestion().cloned()
 					{
 						self.stop_input = tui_input::Input::new(suggestion.label);
+						self.selected_stop_id = Some(suggestion.id);
 						self.populate_departures();
 						self.current_state = AppState::DepartureList;
 					}
@@ -290,12 +293,15 @@ impl App {
 	}
 
 	fn populate_departures(&mut self) {
-		let from = self.stop_input.value().to_string();
-		if let Some(tx) = &self.fetch_tx {
+		if let (Some(from), Some(tx)) = (&self.selected_stop_id, &self.fetch_tx) {
 			let tx = tx.clone();
+			let from = from.clone();
 			tokio::spawn(async move {
 				let departures = get_departures(&from).await;
-				let _ = tx.send(FetchResult::Departures(departures));
+				let _ = match departures {
+					Ok(departures) => tx.send(FetchResult::Departures(departures)),
+					Err(e) => tx.send(FetchResult::Error(e)),
+				};
 			});
 		}
 	}
