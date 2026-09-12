@@ -75,7 +75,7 @@ impl JourneyPlanner {
 			variables: vars,
 		};
 		client
-			.get(JOURNEYPLANNER_URL)
+			.post(JOURNEYPLANNER_URL)
 			.json(&request)
 			.header("ET-Client-Name", CLIENT_NAME)
 			.send()
