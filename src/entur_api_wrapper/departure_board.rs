@@ -75,7 +75,7 @@ impl Departure {
 
 pub async fn get_departures(from: &str) -> ApiResult<Vec<Departure>> {
 	let client = reqwest::Client::new();
-	let result: Vec<Departure> = api::JourneyPlanner::get_departures(&client, from)
+	let result: Vec<Departure> = api::JourneyPlanner::get_departures(&client, from, 30)
 		.await?
 		.data
 		.stop_place
@@ -83,7 +83,7 @@ pub async fn get_departures(from: &str) -> ApiResult<Vec<Departure>> {
 		.into_iter()
 		.map(|call| Departure {
 			destination: call.destination_display.front_text,
-			line: call.service_journey.journey_pattern.line.name,
+			line: call.service_journey.journey_pattern.line.public_code,
 			time: call
 				.expected_departure_time
 				.parse()

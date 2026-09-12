@@ -66,9 +66,10 @@ impl JourneyPlanner {
 	pub async fn get_departures(
 		client: &reqwest::Client,
 		stop_id: &str,
+		num_departures: u32,
 	) -> Result<DepartureBoard, reqwest::Error> {
 		let mut vars: HashMap<&str, serde_json::Value> = HashMap::new();
-		vars.insert("departures", json!(10));
+		vars.insert("departures", json!(num_departures));
 		vars.insert("id", json!(stop_id));
 		let request = RequestQuery {
 			query: DEPARTUREBOARD_QUERY,
