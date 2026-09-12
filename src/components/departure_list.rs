@@ -6,7 +6,8 @@ use ratatui::{
 };
 
 use crate::{
-	components::departure_item::DepartureItem, entur_api_wrapper::departure_board::Departure,
+	components::departure_item::{DepartureItem, ROW_HEIGHT},
+	entur_api_wrapper::departure_board::Departure,
 	styles,
 };
 
@@ -136,22 +137,27 @@ impl StatefulWidget for DepartureList {
 		border_block.render(area, buf);
 		let inner_area = area.inner(Margin::new(1, 1));
 
-		let visible_height = inner_area.height as usize;
+		let visible_rows = (inner_area.height as usize) / ROW_HEIGHT as usize;
+
+		if visible_rows == 0 {
+			return;
+		}
+
 		let total_departures = state.len();
 
-		// Adjust scroll based on current selection and visible height
-		state.adjust_scroll(visible_height);
+		// Adjust scroll based on current selection and visible item count
+		state.adjust_scroll(visible_rows);
 
 		// Calculate visible range based on scroll offset
 		let start_index = state.scroll_offset.min(total_departures);
-		let end_index = (start_index + visible_height).min(total_departures);
+		let end_index = (start_index + visible_rows).min(total_departures);
 		let visible_count = end_index.saturating_sub(start_index);
 
 		if visible_count == 0 {
 			return;
 		}
 
-		let departure_list = Layout::vertical(vec![Constraint::Length(1); visible_count]);
+		let departure_list = Layout::vertical(vec![Constraint::Length(ROW_HEIGHT); visible_count]);
 		let areas = departure_list.split(inner_area);
 
 		for (index, (&area, departure)) in areas
