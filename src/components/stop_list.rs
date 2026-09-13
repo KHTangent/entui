@@ -124,12 +124,13 @@ impl StatefulWidget for StopList {
 	type State = StopListState;
 
 	fn render(self, area: Rect, buf: &mut Buffer, state: &mut StopListState) {
-		let border_block = Block::default().borders(Borders::ALL).border_style(
-			Style::new().fg(self
-				.focused
-				.then_some(styles::ACTIVE_COLOR)
-				.unwrap_or(styles::INACTIVE_COLOR)),
-		);
+		let border_block = Block::default()
+			.borders(Borders::ALL)
+			.border_style(Style::new().fg(if self.focused {
+				styles::ACTIVE_COLOR
+			} else {
+				styles::INACTIVE_COLOR
+			}));
 		border_block.render(area, buf);
 		let inner_area = area.inner(Margin::new(1, 1));
 

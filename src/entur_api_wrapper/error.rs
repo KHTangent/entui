@@ -39,7 +39,7 @@ impl From<reqwest::Error> for ApiError {
 		if !value.is_status() {
 			return Self {
 				kind: ApiErrorKind::BadRequest,
-				message: value.source().unwrap_or_else(|| &value).to_string(),
+				message: value.source().unwrap_or(&value).to_string(),
 			};
 		}
 		use reqwest::StatusCode;

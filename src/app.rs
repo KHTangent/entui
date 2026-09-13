@@ -51,7 +51,7 @@ pub struct App {
 
 impl App {
 	pub fn new() -> Self {
-		let app = Self {
+		Self {
 			current_state: AppState::default(),
 			departure_list_state: DepartureListState::new(),
 			stop_list_state: StopListState::new(),
@@ -61,8 +61,7 @@ impl App {
 			suggestion_list_state: SuggestionListState::new(),
 			should_quit: false,
 			fetch_tx: None,
-		};
-		app
+		}
 	}
 
 	pub async fn run(&mut self, terminal: &mut DefaultTerminal) -> Result<()> {
@@ -120,7 +119,7 @@ impl App {
 			self.should_quit = true;
 			return;
 		}
-		if self.active_errors.len() > 0 && action == Action::Confirm {
+		if !self.active_errors.is_empty() && action == Action::Confirm {
 			self.active_errors.pop_front();
 			return;
 		}
@@ -142,11 +141,9 @@ impl App {
 				Action::MoveUp => {
 					self.departure_list_state.select_previous();
 				}
-				Action::Confirm => {
-					if self.departure_list_state.selected_departure().is_some() {
-						self.populate_stops();
-						self.current_state = AppState::BrowseStops;
-					}
+				Action::Confirm if self.departure_list_state.selected_departure().is_some() => {
+					self.populate_stops();
+					self.current_state = AppState::BrowseStops;
 				}
 				_ => {}
 			},
@@ -210,16 +207,18 @@ impl App {
 				.borders(Borders::ALL)
 				.padding(Padding::uniform(1))
 				.border_style(
-					Style::new().fg((self.current_state == AppState::EditSearch)
-						.then_some(styles::ACTIVE_COLOR)
-						.unwrap_or(styles::INACTIVE_COLOR)),
+					Style::new().fg(if self.current_state == AppState::EditSearch {
+						styles::ACTIVE_COLOR
+					} else {
+						styles::INACTIVE_COLOR
+					}),
 				)
 				.title_bottom("Stop name"),
 		);
 		frame.render_widget(search_text, search_bar_rect);
 		if self.current_state == AppState::EditSearch {
 			let x = self.stop_input.visual_cursor() as u16;
-			frame.set_cursor_position((search_bar_rect.x + x + 2, search_bar_rect.y + 2 as u16));
+			frame.set_cursor_position((search_bar_rect.x + x + 2, search_bar_rect.y + 2_u16));
 		}
 
 		frame.render_stateful_widget(

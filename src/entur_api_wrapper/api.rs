@@ -7,11 +7,11 @@ use crate::entur_api_wrapper::raw_types::{
 	journey_planner::{DepartureBoard, RequestQuery},
 };
 
-const GEOCODER_URL: &'static str = "https://api.entur.io/geocoder/v3/autocomplete";
-const JOURNEYPLANNER_URL: &'static str = "https://api.entur.io/journey-planner/v3/graphql";
-const CLIENT_NAME: &'static str = "KHTangent-Entui";
+const GEOCODER_URL: &str = "https://api.entur.io/geocoder/v3/autocomplete";
+const JOURNEYPLANNER_URL: &str = "https://api.entur.io/journey-planner/v3/graphql";
+const CLIENT_NAME: &str = "KHTangent-Entui";
 
-const DEPARTUREBOARD_QUERY: &'static str = r#"
+const DEPARTUREBOARD_QUERY: &str = r#"
 query departureBoard($id: String!, $departures: Int!) {
 	stopPlace(id: $id) {
 		id
