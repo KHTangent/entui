@@ -18,12 +18,12 @@ query departureBoard($id: String!, $departures: Int!) {
 		name
 		estimatedCalls(timeRange: 72100, numberOfDepartures: $departures) {
 			realtime
-				aimedDepartureTime
-				expectedDepartureTime
-				forBoarding
-				destinationDisplay {
-					frontText
-				}
+			aimedDepartureTime
+			expectedDepartureTime
+			forBoarding
+			destinationDisplay {
+				frontText
+			}
 			quay {
 				id
 			}
