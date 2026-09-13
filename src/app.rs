@@ -33,7 +33,7 @@ pub enum AppState {
 enum FetchResult {
 	Autocomplete(Vec<StopSearchResult>),
 	Departures(Vec<Departure>),
-	Stops(Vec<Stop>, String),
+	Stops(Vec<Stop>),
 	Error(ApiError),
 }
 
@@ -91,8 +91,13 @@ impl App {
 							self.departure_list_state.set_departures(departures);
 							self.stop_list_state.clear();
 						}
-						FetchResult::Stops(stops, search_name) => {
-							let selected_index = stops.iter().position(|s| s.name == search_name).or(None);
+						FetchResult::Stops(stops) => {
+							let selected_index = if let Some(departure) = self.departure_list_state.selected_departure() {
+								let current_quay_id = &departure.quay_id;
+								stops.iter().position(|s| s.quay_id == *current_quay_id).or(None)
+							} else {
+								None
+							};
 							self.stop_list_state.set_stops(stops);
 							self.stop_list_state.set_selected_index(selected_index);
 						}
@@ -306,18 +311,17 @@ impl App {
 	}
 
 	fn populate_stops(&mut self) {
-		if let Some(departure) = self.departure_list_state.selected_departure().cloned() {
-			let search_name = self.stop_input.value().to_string();
-			if let Some(tx) = &self.fetch_tx {
-				let tx = tx.clone();
-				tokio::spawn(async move {
-					let stops = departure.get_stops().await;
-					let _ = match stops {
-						Ok(stops) => tx.send(FetchResult::Stops(stops, search_name)),
-						Err(e) => tx.send(FetchResult::Error(e)),
-					};
-				});
-			}
+		if let Some(departure) = self.departure_list_state.selected_departure().cloned()
+			&& let Some(tx) = &self.fetch_tx
+		{
+			let tx = tx.clone();
+			tokio::spawn(async move {
+				let stops = departure.get_stops().await;
+				let _ = match stops {
+					Ok(stops) => tx.send(FetchResult::Stops(stops)),
+					Err(e) => tx.send(FetchResult::Error(e)),
+				};
+			});
 		}
 	}
 }

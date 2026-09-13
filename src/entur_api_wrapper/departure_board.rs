@@ -4,6 +4,7 @@ use crate::entur_api_wrapper::{api, error::ApiResult};
 
 #[derive(Debug, Clone)]
 pub struct Departure {
+	pub quay_id: String,
 	pub id: String,
 	pub line: String,
 	pub destination: String,
@@ -45,6 +46,7 @@ pub async fn get_departures(from: &str) -> ApiResult<Vec<Departure>> {
 		.estimated_calls
 		.into_iter()
 		.map(|call| Departure {
+			quay_id: call.quay.id,
 			id: call.service_journey.id,
 			destination: call.destination_display.front_text,
 			line: call.service_journey.journey_pattern.line.public_code,
