@@ -1,12 +1,10 @@
-use std::time::Duration;
-
-use chrono::{Local, TimeDelta};
-use tokio::time::sleep;
+use chrono::Local;
 
 use crate::entur_api_wrapper::{api, error::ApiResult};
 
 #[derive(Debug, Clone)]
 pub struct Departure {
+	pub id: String,
 	pub line: String,
 	pub destination: String,
 	pub time: chrono::DateTime<Local>,
@@ -14,62 +12,27 @@ pub struct Departure {
 
 #[derive(Debug, Clone)]
 pub struct Stop {
+	pub quay_id: String,
 	pub name: String,
 	pub time: chrono::DateTime<Local>,
 }
 
 impl Departure {
-	pub async fn get_stops(&self) -> Vec<Stop> {
-		sleep(Duration::from_millis(250)).await;
-		[
-			"Ratesvingen",
-			"Fossegrenda",
-			"Nordslettvegen",
-			"Nordslettvegen Terrasse",
-			"Nordslettvegen snuplass",
-			"Nordslettvegen Terrasse",
-			"Utleirmark",
-			"Astronomvegen",
-			"Dalsaunevegen",
-			"Nidarvoll skole",
-			"Siemens",
-			"Bratsbergvegen",
-			"Valøyvegen",
-			"Lerkendal 1",
-			"Hesthagen",
-			"Studentersamfundet 1",
-			"Nidarosdomen",
-			"Prinsens gate P2",
-			"Søndre gate",
-			"Trondheim S 13",
-			"Dyre Halses gate",
-			"Buran 2",
-			"Rønningsbakken",
-			"Dalen Hageby",
-			"Strindheim 2",
-			"Strindheim skole",
-			"Strindheim Hageby",
-			"Bromstadsvingen",
-			"Gartnerhallen",
-			"Iskremfabrikken",
-			"Trondheim fengsel",
-			"Hallfred Høyems veg",
-			"Angelltrøvegen",
-			"Sildråpevegen",
-			"Granåsen gård",
-			"Ramstad",
-			"Stokkan",
-			"Jakobsli",
-			"Fortunalia",
-			"Sæterbakken",
-		]
-		.into_iter()
-		.enumerate()
-		.map(|(n, s)| Stop {
-			name: String::from(s),
-			time: self.time + TimeDelta::minutes(2 * (n as i64 - 10)),
-		})
-		.collect()
+	pub async fn get_stops(&self) -> ApiResult<Vec<Stop>> {
+		let client = reqwest::Client::new();
+		let result = api::JourneyPlanner::get_stops(&client, &self.id)
+			.await?
+			.data
+			.service_journey
+			.estimated_calls
+			.into_iter()
+			.map(|call| Stop {
+				quay_id: call.quay.id,
+				name: call.quay.name,
+				time: call.expected_departure_time.parse().unwrap_or(Local::now()),
+			})
+			.collect();
+		Ok(result)
 	}
 }
 
@@ -82,6 +45,7 @@ pub async fn get_departures(from: &str) -> ApiResult<Vec<Departure>> {
 		.estimated_calls
 		.into_iter()
 		.map(|call| Departure {
+			id: call.service_journey.id,
 			destination: call.destination_display.front_text,
 			line: call.service_journey.journey_pattern.line.public_code,
 			time: call

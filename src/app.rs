@@ -312,7 +312,10 @@ impl App {
 				let tx = tx.clone();
 				tokio::spawn(async move {
 					let stops = departure.get_stops().await;
-					let _ = tx.send(FetchResult::Stops(stops, search_name));
+					let _ = match stops {
+						Ok(stops) => tx.send(FetchResult::Stops(stops, search_name)),
+						Err(e) => tx.send(FetchResult::Error(e)),
+					};
 				});
 			}
 		}

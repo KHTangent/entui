@@ -13,12 +13,12 @@ pub struct RequestQuery<'a> {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DepartureBoard {
-	pub data: Data,
+	pub data: DepartureBoardData,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Data {
+pub struct DepartureBoardData {
 	pub stop_place: StopPlace,
 }
 
@@ -27,12 +27,12 @@ pub struct Data {
 pub struct StopPlace {
 	pub id: String,
 	pub name: String,
-	pub estimated_calls: Vec<EstimatedCall>,
+	pub estimated_calls: Vec<EstimatedCallBoard>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct EstimatedCall {
+pub struct EstimatedCallBoard {
 	pub realtime: bool,
 	pub aimed_departure_time: String,
 	pub expected_departure_time: String,
@@ -51,12 +51,38 @@ pub struct DestinationDisplay {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Quay {
 	pub id: String,
+	pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServiceJourney {
+	pub id: String,
 	pub journey_pattern: JourneyPattern,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StopList {
+	pub data: StopListData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StopListData {
+	pub service_journey: ServiceJourneyAllStops,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EstimatedCallJourney {
+	pub quay: Quay,
+	pub expected_departure_time: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServiceJourneyAllStops {
+	pub estimated_calls: Vec<EstimatedCallJourney>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

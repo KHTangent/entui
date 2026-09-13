@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
 use serde_json::json;
+use tracing::info;
 
 use crate::entur_api_wrapper::raw_types::{
 	geocoding::AutocompleteResponse,
-	journey_planner::{DepartureBoard, RequestQuery},
+	journey_planner::{DepartureBoard, RequestQuery, StopList},
 };
 
 const GEOCODER_URL: &str = "https://api.entur.io/geocoder/v3/autocomplete";
@@ -26,8 +27,10 @@ query departureBoard($id: String!, $departures: Int!) {
 			}
 			quay {
 				id
+				name
 			}
 			serviceJourney {
+				id
 				journeyPattern {
 					line {
 						id
@@ -42,6 +45,20 @@ query departureBoard($id: String!, $departures: Int!) {
 }
 "#;
 
+const STOPS_QUERY: &str = r#"
+query stopLists($id: String!) {
+	serviceJourney(id: $id) {
+		estimatedCalls {
+			quay {
+				name
+				id
+			}
+			expectedDepartureTime
+		}
+	}
+}
+"#;
+
 pub struct Geocoder;
 
 impl Geocoder {
@@ -49,6 +66,7 @@ impl Geocoder {
 		client: &reqwest::Client,
 		query: &str,
 	) -> Result<AutocompleteResponse, reqwest::Error> {
+		info!(r#"Requesting search data for "{}""#, query);
 		client
 			.get(GEOCODER_URL)
 			.query(&[("layers", "stopPlace"), ("q", query)])
@@ -68,6 +86,7 @@ impl JourneyPlanner {
 		stop_id: &str,
 		num_departures: u32,
 	) -> Result<DepartureBoard, reqwest::Error> {
+		info!(r#"Requesting departure board for "{}""#, stop_id);
 		let mut vars: HashMap<&str, serde_json::Value> = HashMap::new();
 		vars.insert("departures", json!(num_departures));
 		vars.insert("id", json!(stop_id));
@@ -82,6 +101,27 @@ impl JourneyPlanner {
 			.send()
 			.await?
 			.json::<DepartureBoard>()
+			.await
+	}
+
+	pub async fn get_stops(
+		client: &reqwest::Client,
+		departure_id: &str,
+	) -> Result<StopList, reqwest::Error> {
+		info!(r#"Requesting stops for departure "{}""#, departure_id);
+		let mut vars: HashMap<&str, serde_json::Value> = HashMap::new();
+		vars.insert("id", json!(departure_id));
+		let request = RequestQuery {
+			query: STOPS_QUERY,
+			variables: vars,
+		};
+		client
+			.post(JOURNEYPLANNER_URL)
+			.json(&request)
+			.header("ET-Client-Name", CLIENT_NAME)
+			.send()
+			.await?
+			.json::<StopList>()
 			.await
 	}
 }
