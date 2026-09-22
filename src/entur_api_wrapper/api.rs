@@ -17,6 +17,12 @@ query departureBoard($id: String!, $departures: Int!) {
 	stopPlace(id: $id) {
 		id
 		name
+		quays {
+			id
+			name
+			publicCode
+			description
+		}
 		estimatedCalls(timeRange: 72100, numberOfDepartures: $departures) {
 			realtime
 			aimedDepartureTime

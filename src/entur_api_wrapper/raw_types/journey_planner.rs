@@ -27,7 +27,17 @@ pub struct DepartureBoardData {
 pub struct StopPlace {
 	pub id: String,
 	pub name: String,
+	pub quays: Vec<QuayDescription>,
 	pub estimated_calls: Vec<EstimatedCallBoard>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuayDescription {
+	pub id: String,
+	pub name: String,
+	pub description: Option<String>,
+	pub public_code: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
