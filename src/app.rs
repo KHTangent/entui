@@ -11,9 +11,10 @@ use tui_input::backend::crossterm::EventHandler;
 
 use crate::actions::Action;
 use crate::components::departure_list::{DepartureList, DepartureListState};
+use crate::components::quay_list::{QuayList, QuayListState};
 use crate::components::stop_list::{StopList, StopListState};
 use crate::components::suggestion_list::{SuggestionList, SuggestionListState};
-use crate::entur_api_wrapper::departure_board::{Departure, Stop, get_departures};
+use crate::entur_api_wrapper::departure_board::{DepartureBoardData, Stop, get_departures};
 use crate::entur_api_wrapper::error::ApiError;
 use crate::entur_api_wrapper::stop_register::StopSearchResult;
 use crate::events::{Event, Events};
@@ -27,12 +28,13 @@ pub enum AppState {
 	EditSearch,
 	DepartureList,
 	BrowseStops,
+	BrowseQuays,
 }
 
 #[derive(Clone, Debug)]
 enum FetchResult {
 	Autocomplete(Vec<StopSearchResult>),
-	Departures(Vec<Departure>),
+	Departures(DepartureBoardData),
 	Stops(Vec<Stop>),
 	Error(ApiError),
 }
@@ -41,9 +43,11 @@ pub struct App {
 	current_state: AppState,
 	departure_list_state: DepartureListState,
 	stop_list_state: StopListState,
+	quay_list_state: QuayListState,
 	active_errors: VecDeque<(String, String)>,
 	stop_input: tui_input::Input,
 	selected_stop_id: Option<String>,
+	selected_quay_id: Option<String>,
 	suggestion_list_state: SuggestionListState,
 	should_quit: bool,
 	fetch_tx: Option<UnboundedSender<FetchResult>>,
@@ -55,8 +59,10 @@ impl App {
 			current_state: AppState::default(),
 			departure_list_state: DepartureListState::new(),
 			stop_list_state: StopListState::new(),
+			quay_list_state: QuayListState::new(),
 			active_errors: VecDeque::new(),
 			selected_stop_id: None,
+			selected_quay_id: None,
 			stop_input: tui_input::Input::default(),
 			suggestion_list_state: SuggestionListState::new(),
 			should_quit: false,
@@ -87,8 +93,10 @@ impl App {
 				}
 				Some(result) = fetch_rx.recv() => {
 					match result {
-						FetchResult::Departures(departures) => {
-							self.departure_list_state.set_departures(departures);
+						FetchResult::Departures(board) => {
+							self.departure_list_state.set_departures(board.departures);
+							self.quay_list_state.set_quays(board.quays);
+							self.selected_quay_id = None;
 							self.stop_list_state.clear();
 						}
 						FetchResult::Stops(stops) => {
@@ -135,10 +143,15 @@ impl App {
 				}
 				Action::Cancel => {
 					self.departure_list_state.deselect();
+					self.departure_list_state.clear_quay_filter();
+					self.selected_quay_id = None;
 					self.stop_list_state.clear();
 				}
 				Action::SelectSearch => {
 					self.current_state = AppState::EditSearch;
+				}
+				Action::SelectQuay => {
+					self.current_state = AppState::BrowseQuays;
 				}
 				Action::MoveDown => {
 					self.departure_list_state.select_next();
@@ -164,6 +177,30 @@ impl App {
 				}
 				Action::MoveUp => {
 					self.stop_list_state.select_previous();
+				}
+				_ => {}
+			},
+			AppState::BrowseQuays => match action {
+				Action::Cancel => {
+					self.departure_list_state.clear_quay_filter();
+					self.selected_quay_id = None;
+					self.current_state = AppState::DepartureList;
+				}
+				Action::Quit => {
+					self.should_quit = true;
+				}
+				Action::MoveDown => {
+					self.quay_list_state.select_next();
+				}
+				Action::MoveUp => {
+					self.quay_list_state.select_previous();
+				}
+				Action::Confirm => {
+					if let Some(quay) = self.quay_list_state.selected_quay().cloned() {
+						self.departure_list_state.set_quay_filter(Some(&quay.id));
+						self.selected_quay_id = Some(quay.id);
+						self.current_state = AppState::DepartureList;
+					}
 				}
 				_ => {}
 			},
@@ -232,7 +269,13 @@ impl App {
 			&mut self.departure_list_state,
 		);
 
-		if self.departure_list_state.selected_departure().is_some() {
+		if self.current_state == AppState::BrowseQuays {
+			frame.render_stateful_widget(
+				QuayList::new().with_focused(true),
+				details_rect,
+				&mut self.quay_list_state,
+			);
+		} else if self.departure_list_state.selected_departure().is_some() {
 			frame.render_stateful_widget(
 				StopList::new().with_focused(self.current_state == AppState::BrowseStops),
 				details_rect,

@@ -12,7 +12,9 @@ use crate::{
 };
 
 pub struct DepartureListState {
+	all_departures: Vec<Departure>,
 	departures: Vec<Departure>,
+	quay_filter: Option<String>,
 	selected_index: Option<usize>,
 	scroll_offset: usize,
 }
@@ -20,15 +22,40 @@ pub struct DepartureListState {
 impl DepartureListState {
 	pub fn new() -> Self {
 		Self {
+			all_departures: Vec::new(),
 			departures: Vec::new(),
+			quay_filter: None,
 			selected_index: None,
 			scroll_offset: 0,
 		}
 	}
 
 	pub fn set_departures(&mut self, departures: Vec<Departure>) {
-		self.departures = departures;
-		self.selected_index = None;
+		self.all_departures = departures;
+		self.quay_filter = None;
+		self.apply_filter();
+	}
+
+	pub fn set_quay_filter(&mut self, quay_id: Option<&str>) {
+		self.quay_filter = quay_id.map(str::to_string);
+		self.apply_filter();
+	}
+
+	pub fn clear_quay_filter(&mut self) {
+		self.set_quay_filter(None);
+	}
+
+	fn apply_filter(&mut self) {
+		self.departures = match &self.quay_filter {
+			Some(quay_id) => self
+				.all_departures
+				.iter()
+				.filter(|departure| departure.quay_id == *quay_id)
+				.cloned()
+				.collect(),
+			None => self.all_departures.clone(),
+		};
+		self.selected_index = (!self.departures.is_empty()).then_some(0);
 		self.scroll_offset = 0;
 	}
 
@@ -38,7 +65,9 @@ impl DepartureListState {
 	}
 
 	pub fn clear(&mut self) {
+		self.all_departures.clear();
 		self.departures.clear();
+		self.quay_filter = None;
 		self.selected_index = None;
 		self.scroll_offset = 0;
 	}

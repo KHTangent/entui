@@ -18,6 +18,20 @@ pub struct Stop {
 	pub time: chrono::DateTime<Local>,
 }
 
+#[derive(Debug, Clone)]
+pub struct Quay {
+	pub id: String,
+	pub name: String,
+	pub public_code: Option<String>,
+	pub description: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DepartureBoardData {
+	pub departures: Vec<Departure>,
+	pub quays: Vec<Quay>,
+}
+
 impl Departure {
 	pub async fn get_stops(&self) -> ApiResult<Vec<Stop>> {
 		let client = reqwest::Client::new();
@@ -37,12 +51,14 @@ impl Departure {
 	}
 }
 
-pub async fn get_departures(from: &str) -> ApiResult<Vec<Departure>> {
+pub async fn get_departures(from: &str) -> ApiResult<DepartureBoardData> {
 	let client = reqwest::Client::new();
-	let result: Vec<Departure> = api::JourneyPlanner::get_departures(&client, from, 30)
+	let stop_place = api::JourneyPlanner::get_departures(&client, from, 30)
 		.await?
 		.data
-		.stop_place
+		.stop_place;
+
+	let departures = stop_place
 		.estimated_calls
 		.into_iter()
 		.map(|call| Departure {
@@ -56,5 +72,17 @@ pub async fn get_departures(from: &str) -> ApiResult<Vec<Departure>> {
 				.unwrap_or_else(|_| Local::now()),
 		})
 		.collect();
-	Ok(result)
+
+	let quays = stop_place
+		.quays
+		.into_iter()
+		.map(|quay| Quay {
+			id: quay.id,
+			name: quay.name,
+			public_code: quay.public_code,
+			description: quay.description,
+		})
+		.collect();
+
+	Ok(DepartureBoardData { departures, quays })
 }

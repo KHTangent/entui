@@ -8,6 +8,7 @@ pub enum Action {
 	MoveDown,
 	MoveUp,
 	SelectSearch,
+	SelectQuay,
 	ManualSearch,
 	Cancel,
 	Confirm,
@@ -44,6 +45,9 @@ impl Action {
 
 					(AppState::DepartureList, KeyCode::Char('e'), KeyModifiers::NONE) => {
 						Action::SelectSearch
+					}
+					(AppState::DepartureList, KeyCode::Char('p'), KeyModifiers::NONE) => {
+						Action::SelectQuay
 					}
 					(_, KeyCode::Enter, KeyModifiers::NONE) => Action::Confirm,
 					(_, KeyCode::Tab, KeyModifiers::NONE) => Action::ManualSearch,
