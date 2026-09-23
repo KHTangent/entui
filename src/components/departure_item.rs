@@ -7,6 +7,7 @@ use ratatui::{
 };
 
 use crate::{
+	components::list::render_selection,
 	entur_api_wrapper::departure_board::{Departure, Quay},
 	utils::format_relative_time,
 };
@@ -53,11 +54,7 @@ impl<'a> DepartureItem<'a> {
 
 impl<'a> Widget for DepartureItem<'a> {
 	fn render(self, area: Rect, buf: &mut Buffer) {
-		if self.is_selected {
-			Block::new()
-				.style(Style::new().bg(Color::DarkGray))
-				.render(area, buf);
-		}
+		render_selection(area, buf, self.is_selected);
 
 		let [line_box, text_box] = area.layout(&Layout::horizontal([
 			Constraint::Length(LINE_BADGE_WIDTH),

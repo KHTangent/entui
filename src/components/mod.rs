@@ -5,4 +5,5 @@ pub mod quay_item;
 pub mod quay_list;
 pub mod stop_item;
 pub mod stop_list;
+pub mod suggestion_item;
 pub mod suggestion_list;

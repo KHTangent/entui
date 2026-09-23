@@ -1,10 +1,9 @@
 use ratatui::{
 	prelude::{Buffer, Rect},
-	style::{Color, Style},
-	widgets::{Block, Paragraph, Widget},
+	widgets::{Paragraph, Widget},
 };
 
-use crate::entur_api_wrapper::departure_board::Quay;
+use crate::{components::list::render_selection, entur_api_wrapper::departure_board::Quay};
 
 pub struct QuayItem<'a> {
 	quay: &'a Quay,
@@ -28,11 +27,7 @@ impl<'a> QuayItem<'a> {
 
 impl<'a> Widget for QuayItem<'a> {
 	fn render(self, area: Rect, buf: &mut Buffer) {
-		if self.is_selected {
-			Block::new()
-				.style(Style::new().bg(Color::DarkGray))
-				.render(area, buf);
-		}
+		render_selection(area, buf, self.is_selected);
 		Paragraph::new(self.quay.to_label()).render(area, buf);
 	}
 }

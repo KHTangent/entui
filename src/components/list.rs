@@ -116,6 +116,14 @@ impl<T> Default for ListState<T> {
 	}
 }
 
+pub fn render_selection(area: Rect, buf: &mut Buffer, selected: bool) {
+	if selected {
+		Block::new()
+			.style(Style::new().bg(styles::SELECTION_BG))
+			.render(area, buf);
+	}
+}
+
 pub fn render_list<T>(
 	area: Rect,
 	buf: &mut Buffer,

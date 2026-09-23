@@ -1,11 +1,13 @@
 use ratatui::{
 	prelude::{Buffer, Rect},
-	style::{Color, Style},
-	widgets::{Block, Paragraph, StatefulWidget, Widget},
+	widgets::{StatefulWidget, Widget},
 };
 
 use crate::{
-	components::list::{ListState, render_list},
+	components::{
+		list::{ListState, render_list},
+		suggestion_item::SuggestionItem,
+	},
 	entur_api_wrapper::stop_register::StopSearchResult,
 };
 
@@ -44,12 +46,9 @@ impl StatefulWidget for SuggestionList {
 			None,
 			1,
 			|suggestion, area, buf, selected| {
-				if selected {
-					Block::new()
-						.style(Style::new().bg(Color::DarkGray))
-						.render(area, buf);
-				}
-				Paragraph::new(suggestion.label.as_str()).render(area, buf);
+				SuggestionItem::from(suggestion)
+					.with_selected(selected)
+					.render(area, buf);
 			},
 		);
 	}
