@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::future::Future;
 
 use color_eyre::Result;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -11,11 +12,12 @@ use tui_input::backend::crossterm::EventHandler;
 
 use crate::actions::Action;
 use crate::components::departure_list::{DepartureList, DepartureListState};
+use crate::components::list::Selectable;
 use crate::components::quay_list::{QuayList, QuayListState};
 use crate::components::stop_list::{StopList, StopListState};
 use crate::components::suggestion_list::{SuggestionList, SuggestionListState};
 use crate::entur_api_wrapper::departure_board::{DepartureBoardData, Stop, get_departures};
-use crate::entur_api_wrapper::error::ApiError;
+use crate::entur_api_wrapper::error::{ApiError, ApiResult};
 use crate::entur_api_wrapper::stop_register::StopSearchResult;
 use crate::events::{Event, Events};
 use crate::styles;
@@ -103,7 +105,7 @@ impl App {
 						FetchResult::Stops(stops) => {
 							let selected_index = if let Some(departure) = self.departure_list_state.selected_departure() {
 								let current_quay_id = &departure.quay_id;
-								stops.iter().position(|s| s.quay_id == *current_quay_id).or(None)
+								stops.iter().position(|s| s.quay_id == *current_quay_id)
 							} else {
 								None
 							};
@@ -115,7 +117,7 @@ impl App {
 						}
 						FetchResult::Error(e) => {
 							self.active_errors.push_back((
-								format!("{:?}", e.kind).to_string(),
+								format!("{:?}", e.kind),
 								e.message,
 							));
 						},
@@ -137,6 +139,17 @@ impl App {
 			self.active_errors.pop_front();
 			return;
 		}
+		match action {
+			Action::MoveDown => {
+				self.active_selection().select_next();
+				return;
+			}
+			Action::MoveUp => {
+				self.active_selection().select_previous();
+				return;
+			}
+			_ => {}
+		}
 		match self.current_state {
 			AppState::DepartureList => match action {
 				Action::Quit => {
@@ -154,12 +167,6 @@ impl App {
 				Action::SelectQuay => {
 					self.current_state = AppState::BrowseQuays;
 				}
-				Action::MoveDown => {
-					self.departure_list_state.select_next();
-				}
-				Action::MoveUp => {
-					self.departure_list_state.select_previous();
-				}
 				Action::Confirm if self.departure_list_state.selected_departure().is_some() => {
 					self.populate_stops();
 					self.current_state = AppState::BrowseStops;
@@ -173,12 +180,6 @@ impl App {
 				Action::Quit => {
 					self.should_quit = true;
 				}
-				Action::MoveDown => {
-					self.stop_list_state.select_next();
-				}
-				Action::MoveUp => {
-					self.stop_list_state.select_previous();
-				}
 				_ => {}
 			},
 			AppState::BrowseQuays => match action {
@@ -189,12 +190,6 @@ impl App {
 				}
 				Action::Quit => {
 					self.should_quit = true;
-				}
-				Action::MoveDown => {
-					self.quay_list_state.select_next();
-				}
-				Action::MoveUp => {
-					self.quay_list_state.select_previous();
 				}
 				Action::Confirm => {
 					if let Some(quay) = self.quay_list_state.selected().cloned() {
@@ -211,12 +206,6 @@ impl App {
 						self.current_state = AppState::DepartureList;
 					}
 				}
-				Action::MoveDown => {
-					self.suggestion_list_state.select_next();
-				}
-				Action::MoveUp => {
-					self.suggestion_list_state.select_previous();
-				}
 				Action::ManualSearch => {
 					self.populate_autocomplete();
 				}
@@ -230,6 +219,15 @@ impl App {
 				}
 				_ => {}
 			},
+		}
+	}
+
+	fn active_selection(&mut self) -> &mut dyn Selectable {
+		match self.current_state {
+			AppState::DepartureList => &mut self.departure_list_state,
+			AppState::BrowseStops => &mut self.stop_list_state,
+			AppState::BrowseQuays => &mut self.quay_list_state,
+			AppState::EditSearch => &mut self.suggestion_list_state,
 		}
 	}
 
@@ -324,46 +322,47 @@ impl App {
 		);
 	}
 
-	fn populate_autocomplete(&mut self) {
-		let query = self.stop_input.value().to_string();
+	fn spawn_fetch<T>(
+		&self,
+		fetch: impl Future<Output = ApiResult<T>> + Send + 'static,
+		on_ok: fn(T) -> FetchResult,
+	) where
+		T: Send + 'static,
+	{
 		if let Some(tx) = &self.fetch_tx {
 			let tx = tx.clone();
 			tokio::spawn(async move {
-				let results = StopSearchResult::search(&query).await;
-				let _ = match results {
-					Ok(results) => tx.send(FetchResult::Autocomplete(results)),
+				let _ = match fetch.await {
+					Ok(value) => tx.send(on_ok(value)),
 					Err(e) => tx.send(FetchResult::Error(e)),
 				};
 			});
 		}
 	}
 
+	fn populate_autocomplete(&mut self) {
+		let query = self.stop_input.value().to_string();
+		self.spawn_fetch(
+			async move { StopSearchResult::search(&query).await },
+			FetchResult::Autocomplete,
+		);
+	}
+
 	fn populate_departures(&mut self) {
-		if let (Some(from), Some(tx)) = (&self.selected_stop_id, &self.fetch_tx) {
-			let tx = tx.clone();
-			let from = from.clone();
-			tokio::spawn(async move {
-				let departures = get_departures(&from).await;
-				let _ = match departures {
-					Ok(departures) => tx.send(FetchResult::Departures(departures)),
-					Err(e) => tx.send(FetchResult::Error(e)),
-				};
-			});
+		if let Some(from) = self.selected_stop_id.clone() {
+			self.spawn_fetch(
+				async move { get_departures(&from).await },
+				FetchResult::Departures,
+			);
 		}
 	}
 
 	fn populate_stops(&mut self) {
-		if let Some(departure) = self.departure_list_state.selected_departure().cloned()
-			&& let Some(tx) = &self.fetch_tx
-		{
-			let tx = tx.clone();
-			tokio::spawn(async move {
-				let stops = departure.get_stops().await;
-				let _ = match stops {
-					Ok(stops) => tx.send(FetchResult::Stops(stops)),
-					Err(e) => tx.send(FetchResult::Error(e)),
-				};
-			});
+		if let Some(departure) = self.departure_list_state.selected_departure().cloned() {
+			self.spawn_fetch(
+				async move { departure.get_stops().await },
+				FetchResult::Stops,
+			);
 		}
 	}
 }

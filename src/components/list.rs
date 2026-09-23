@@ -116,6 +116,21 @@ impl<T> Default for ListState<T> {
 	}
 }
 
+pub trait Selectable {
+	fn select_next(&mut self);
+	fn select_previous(&mut self);
+}
+
+impl<T> Selectable for ListState<T> {
+	fn select_next(&mut self) {
+		ListState::select_next(self);
+	}
+
+	fn select_previous(&mut self) {
+		ListState::select_previous(self);
+	}
+}
+
 pub fn render_selection(area: Rect, buf: &mut Buffer, selected: bool) {
 	if selected {
 		Block::new()

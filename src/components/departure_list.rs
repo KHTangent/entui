@@ -9,7 +9,7 @@ use ratatui::{
 use crate::{
 	components::{
 		departure_item::{DepartureItem, ROW_HEIGHT},
-		list::{ListState, render_list},
+		list::{ListState, Selectable, render_list},
 	},
 	entur_api_wrapper::departure_board::{Departure, Quay},
 };
@@ -66,14 +66,6 @@ impl DepartureListState {
 		self.list.set_items(departures);
 	}
 
-	pub fn select_next(&mut self) {
-		self.list.select_next();
-	}
-
-	pub fn select_previous(&mut self) {
-		self.list.select_previous();
-	}
-
 	pub fn deselect(&mut self) {
 		self.list.deselect();
 	}
@@ -90,6 +82,16 @@ impl DepartureListState {
 impl Default for DepartureListState {
 	fn default() -> Self {
 		Self::new()
+	}
+}
+
+impl Selectable for DepartureListState {
+	fn select_next(&mut self) {
+		self.list.select_next();
+	}
+
+	fn select_previous(&mut self) {
+		self.list.select_previous();
 	}
 }
 
