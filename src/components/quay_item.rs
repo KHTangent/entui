@@ -24,18 +24,6 @@ impl<'a> QuayItem<'a> {
 		self.is_selected = selected;
 		self
 	}
-
-	fn label(quay: &Quay) -> String {
-		let mut label = quay.name.clone();
-		if let Some(public_code) = &quay.public_code {
-			label.push(' ');
-			label.push_str(public_code);
-		}
-		if let Some(description) = &quay.description {
-			label.push_str(&format!(" ({})", description));
-		}
-		label
-	}
 }
 
 impl<'a> Widget for QuayItem<'a> {
@@ -45,6 +33,6 @@ impl<'a> Widget for QuayItem<'a> {
 				.style(Style::new().bg(Color::DarkGray))
 				.render(area, buf);
 		}
-		Paragraph::new(Self::label(self.quay)).render(area, buf);
+		Paragraph::new(self.quay.to_label()).render(area, buf);
 	}
 }

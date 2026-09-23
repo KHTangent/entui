@@ -95,6 +95,7 @@ impl App {
 					match result {
 						FetchResult::Departures(board) => {
 							self.departure_list_state.set_departures(board.departures);
+							self.departure_list_state.set_quays(&board.quays);
 							self.quay_list_state.set_quays(board.quays);
 							self.selected_quay_id = None;
 							self.stop_list_state.clear();

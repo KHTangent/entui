@@ -6,7 +6,10 @@ use ratatui::{
 	widgets::{Block, Paragraph, Widget},
 };
 
-use crate::{entur_api_wrapper::departure_board::Departure, utils::format_relative_time};
+use crate::{
+	entur_api_wrapper::departure_board::{Departure, Quay},
+	utils::format_relative_time,
+};
 
 pub const ROW_HEIGHT: u16 = 3;
 const LINE_BADGE_WIDTH: u16 = 7;
@@ -16,6 +19,7 @@ pub struct DepartureItem<'a> {
 	line_color: Color,
 	line_color_bg: Color,
 	is_selected: bool,
+	quay_info: Option<&'a Quay>,
 }
 impl<'a> From<&'a Departure> for DepartureItem<'a> {
 	fn from(value: &'a Departure) -> Self {
@@ -24,6 +28,7 @@ impl<'a> From<&'a Departure> for DepartureItem<'a> {
 			line_color: Color::default(),
 			line_color_bg: Color::default(),
 			is_selected: false,
+			quay_info: None,
 		}
 	}
 }
@@ -37,6 +42,11 @@ impl<'a> DepartureItem<'a> {
 
 	pub fn with_selected(mut self, selected: bool) -> DepartureItem<'a> {
 		self.is_selected = selected;
+		self
+	}
+
+	pub fn with_quay_info(mut self, quay_info: &'a Quay) -> DepartureItem<'a> {
+		self.quay_info = Some(quay_info);
 		self
 	}
 }
@@ -61,17 +71,27 @@ impl<'a> Widget for DepartureItem<'a> {
 			.block(Block::bordered().border_style(Style::new().fg(self.line_color_bg)))
 			.render(line_box, buf);
 
-		let text_area = Rect {
-			y: text_box.y + 1,
-			height: 1,
-			..text_box
-		};
-		let [destination_box, time_box] = text_area.layout(&Layout::horizontal([
+		let [destination_column, time_box] = text_box.layout(&Layout::horizontal([
 			Constraint::Fill(8),
 			Constraint::Fill(2),
 		]));
+		let [_, destination_box, label_box] = destination_column.layout(&Layout::vertical([
+			Constraint::Length(1),
+			Constraint::Length(1),
+			Constraint::Length(1),
+		]));
 		Paragraph::new(self.departure.destination.as_str()).render(destination_box, buf);
+		if let Some(quay) = self.quay_info {
+			Paragraph::new(quay.to_label())
+				.style(Style::new().dim())
+				.render(label_box, buf);
+		}
+		let [_, time_row, _] = time_box.layout(&Layout::vertical([
+			Constraint::Length(1),
+			Constraint::Length(1),
+			Constraint::Length(1),
+		]));
 		Paragraph::new(format_relative_time(&Local::now(), &self.departure.time))
-			.render(time_box, buf);
+			.render(time_row, buf);
 	}
 }

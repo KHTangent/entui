@@ -26,6 +26,19 @@ pub struct Quay {
 	pub description: Option<String>,
 }
 
+impl Quay {
+	pub fn to_label(&self) -> String {
+		match (&self.public_code, &self.description) {
+			(Some(code), Some(description)) => {
+				format!("{} {} ({})", self.name, code, description).to_string()
+			}
+			(None, Some(description)) => format!("{} ({})", self.name, description).to_string(),
+			(Some(code), None) => format!("{} {}", self.name, code).to_string(),
+			(None, None) => self.name.clone(),
+		}
+	}
+}
+
 #[derive(Debug, Clone)]
 pub struct DepartureBoardData {
 	pub departures: Vec<Departure>,

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use ratatui::{
 	layout::{Constraint, Layout, Margin},
 	prelude::{Buffer, Rect},
@@ -7,13 +9,14 @@ use ratatui::{
 
 use crate::{
 	components::departure_item::{DepartureItem, ROW_HEIGHT},
-	entur_api_wrapper::departure_board::Departure,
+	entur_api_wrapper::departure_board::{Departure, Quay},
 	styles,
 };
 
 pub struct DepartureListState {
 	all_departures: Vec<Departure>,
 	departures: Vec<Departure>,
+	quays: HashMap<String, Quay>,
 	quay_filter: Option<String>,
 	selected_index: Option<usize>,
 	scroll_offset: usize,
@@ -24,6 +27,7 @@ impl DepartureListState {
 		Self {
 			all_departures: Vec::new(),
 			departures: Vec::new(),
+			quays: HashMap::new(),
 			quay_filter: None,
 			selected_index: None,
 			scroll_offset: 0,
@@ -34,6 +38,13 @@ impl DepartureListState {
 		self.all_departures = departures;
 		self.quay_filter = None;
 		self.apply_filter();
+	}
+
+	pub fn set_quays(&mut self, quays: &[Quay]) {
+		self.quays = quays
+			.iter()
+			.map(|quay| (quay.id.clone(), quay.clone()))
+			.collect();
 	}
 
 	pub fn set_quay_filter(&mut self, quay_id: Option<&str>) {
@@ -197,10 +208,13 @@ impl StatefulWidget for DepartureList {
 		{
 			let absolute_index = start_index + index;
 			let is_selected = state.selected_index == Some(absolute_index);
-			DepartureItem::from(departure)
+			let mut item = DepartureItem::from(departure)
 				.with_line_color(Color::White, Color::Green)
-				.with_selected(is_selected)
-				.render(area, buf);
+				.with_selected(is_selected);
+			if let Some(quay) = state.quays.get(&departure.quay_id) {
+				item = item.with_quay_info(quay);
+			}
+			item.render(area, buf);
 		}
 	}
 }
