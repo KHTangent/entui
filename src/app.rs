@@ -96,7 +96,7 @@ impl App {
 						FetchResult::Departures(board) => {
 							self.departure_list_state.set_departures(board.departures);
 							self.departure_list_state.set_quays(&board.quays);
-							self.quay_list_state.set_quays(board.quays);
+							self.quay_list_state.set_items(board.quays);
 							self.selected_quay_id = None;
 							self.stop_list_state.clear();
 						}
@@ -107,11 +107,11 @@ impl App {
 							} else {
 								None
 							};
-							self.stop_list_state.set_stops(stops);
+							self.stop_list_state.set_items(stops);
 							self.stop_list_state.set_selected_index(selected_index);
 						}
 						FetchResult::Autocomplete(results) => {
-							self.suggestion_list_state.set_suggestions(results);
+							self.suggestion_list_state.set_items(results);
 						}
 						FetchResult::Error(e) => {
 							self.active_errors.push_back((
@@ -197,7 +197,7 @@ impl App {
 					self.quay_list_state.select_previous();
 				}
 				Action::Confirm => {
-					if let Some(quay) = self.quay_list_state.selected_quay().cloned() {
+					if let Some(quay) = self.quay_list_state.selected().cloned() {
 						self.departure_list_state.set_quay_filter(Some(&quay.id));
 						self.selected_quay_id = Some(quay.id);
 						self.current_state = AppState::DepartureList;
@@ -221,9 +221,7 @@ impl App {
 					self.populate_autocomplete();
 				}
 				Action::Confirm => {
-					if let Some(suggestion) =
-						self.suggestion_list_state.selected_suggestion().cloned()
-					{
+					if let Some(suggestion) = self.suggestion_list_state.selected().cloned() {
 						self.stop_input = tui_input::Input::new(suggestion.label);
 						self.selected_stop_id = Some(suggestion.id);
 						self.populate_departures();
