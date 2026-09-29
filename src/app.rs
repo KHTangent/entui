@@ -16,6 +16,7 @@ use crate::components::list::Selectable;
 use crate::components::quay_list::{QuayList, QuayListState};
 use crate::components::stop_list::{StopList, StopListState};
 use crate::components::suggestion_list::{SuggestionList, SuggestionListState};
+use crate::components::time_editor::{self, TimeEditor, TimeEditorState, cursor_position};
 use crate::entur_api_wrapper::departure_board::{DepartureBoardData, Stop, get_departures};
 use crate::entur_api_wrapper::error::{ApiError, ApiResult};
 use crate::entur_api_wrapper::stop_register::StopSearchResult;
@@ -31,9 +32,14 @@ pub enum AppState {
 	DepartureList,
 	BrowseStops,
 	BrowseQuays,
+	EditTime,
 }
 
 impl AppState {
+	pub fn is_interactive(self) -> bool {
+		matches!(self, AppState::EditSearch | AppState::EditTime)
+	}
+
 	pub fn keybinds(self) -> &'static [&'static str] {
 		match self {
 			AppState::EditSearch => &[
@@ -49,6 +55,7 @@ impl AppState {
 				"<k/Up/C-u>   move up",
 				"<e>          edit search",
 				"<p>          browse quays",
+				"<t>          set departure time",
 				"<Enter>      view stops",
 				"<Esc>        clear selection",
 				"<h/?>        toggle help",
@@ -68,6 +75,12 @@ impl AppState {
 				"<Esc>        cancel",
 				"<h/?>        toggle help",
 				"<q>          quit",
+			],
+			AppState::EditTime => &[
+				"<Tab/S-Tab> next/prev field",
+				"<Enter>     set time",
+				"<Esc>       cancel",
+				"<?>         toggle help",
 			],
 		}
 	}
@@ -91,6 +104,7 @@ pub struct App {
 	selected_stop_id: Option<String>,
 	selected_quay_id: Option<String>,
 	suggestion_list_state: SuggestionListState,
+	time_editor_state: TimeEditorState,
 	should_quit: bool,
 	fetch_tx: Option<UnboundedSender<FetchResult>>,
 	show_help: bool,
@@ -108,6 +122,7 @@ impl App {
 			selected_quay_id: None,
 			stop_input: tui_input::Input::default(),
 			suggestion_list_state: SuggestionListState::new(),
+			time_editor_state: TimeEditorState::new(),
 			should_quit: false,
 			fetch_tx: None,
 			show_help: true,
@@ -126,10 +141,13 @@ impl App {
 							terminal.draw(|frame| self.render(frame))?;
 						}
 						Event::Crossterm(event) => {
+							let state_before = self.current_state;
 							let action = Action::from_event(&event, self.current_state);
 							self.handle_action(action);
 							if self.current_state == AppState::EditSearch && action != Action::SelectSearch {
 								self.stop_input.handle_event(&event);
+							} else if state_before == AppState::EditTime && action == Action::None {
+								self.time_editor_state.handle_event(&event);
 							}
 						}
 						Event::Error => {}
@@ -213,6 +231,10 @@ impl App {
 				Action::SelectQuay => {
 					self.current_state = AppState::BrowseQuays;
 				}
+				Action::SelectTime => {
+					self.time_editor_state.reset();
+					self.current_state = AppState::EditTime;
+				}
 				Action::Confirm if self.departure_list_state.selected_departure().is_some() => {
 					self.populate_stops();
 					self.current_state = AppState::BrowseStops;
@@ -265,6 +287,28 @@ impl App {
 				}
 				_ => {}
 			},
+			AppState::EditTime => match action {
+				Action::NextField => {
+					self.time_editor_state.next_field();
+				}
+				Action::PreviousField => {
+					self.time_editor_state.previous_field();
+				}
+				Action::Cancel => {
+					self.current_state = AppState::DepartureList;
+				}
+				Action::Confirm => match self.time_editor_state.parse() {
+					Ok(timestamp) => {
+						tracing::info!(%timestamp, "selected departure time");
+						self.current_state = AppState::DepartureList;
+					}
+					Err(message) => {
+						self.active_errors
+							.push_back(("Invalid time".to_string(), message));
+					}
+				},
+				_ => {}
+			},
 		}
 	}
 
@@ -274,6 +318,7 @@ impl App {
 			AppState::BrowseStops => &mut self.stop_list_state,
 			AppState::BrowseQuays => &mut self.quay_list_state,
 			AppState::EditSearch => &mut self.suggestion_list_state,
+			AppState::EditTime => &mut self.time_editor_state,
 		}
 	}
 
@@ -331,6 +376,16 @@ impl App {
 
 		if self.current_state == AppState::EditSearch && !self.stop_input.value().is_empty() {
 			self.render_suggestions(frame, search_bar_rect);
+		}
+
+		if self.current_state == AppState::EditTime {
+			let editor_area = frame.area().centered(
+				Constraint::Length(time_editor::EDITOR_WIDTH),
+				Constraint::Length(time_editor::EDITOR_HEIGHT),
+			);
+			frame.render_widget(Clear, editor_area);
+			frame.render_stateful_widget(TimeEditor, editor_area, &mut self.time_editor_state);
+			frame.set_cursor_position(cursor_position(editor_area, &self.time_editor_state));
 		}
 
 		if let Some((error_title, error_description)) = self.active_errors.front() {

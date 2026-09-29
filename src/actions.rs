@@ -9,7 +9,10 @@ pub enum Action {
 	MoveUp,
 	SelectSearch,
 	SelectQuay,
+	SelectTime,
 	ManualSearch,
+	NextField,
+	PreviousField,
 	Cancel,
 	Confirm,
 	ToggleHelp,
@@ -29,7 +32,7 @@ impl Action {
 					(_, KeyCode::Char('q'), KeyModifiers::NONE) => Action::Quit,
 
 					(_, KeyCode::Char('k'), KeyModifiers::NONE)
-						if current_state != AppState::EditSearch =>
+						if !current_state.is_interactive() =>
 					{
 						Action::MoveUp
 					}
@@ -37,7 +40,7 @@ impl Action {
 					(_, KeyCode::Char('p'), KeyModifiers::CONTROL) => Action::MoveUp,
 
 					(_, KeyCode::Char('j'), KeyModifiers::NONE)
-						if current_state != AppState::EditSearch =>
+						if !current_state.is_interactive() =>
 					{
 						Action::MoveDown
 					}
@@ -50,12 +53,17 @@ impl Action {
 					(AppState::DepartureList, KeyCode::Char('p'), KeyModifiers::NONE) => {
 						Action::SelectQuay
 					}
+					(AppState::DepartureList, KeyCode::Char('t'), KeyModifiers::NONE) => {
+						Action::SelectTime
+					}
+					(AppState::EditTime, KeyCode::Tab, _) => Action::NextField,
+					(AppState::EditTime, KeyCode::BackTab, _) => Action::PreviousField,
 					(_, KeyCode::Enter, KeyModifiers::NONE) => Action::Confirm,
 					(_, KeyCode::Tab, KeyModifiers::NONE) => Action::ManualSearch,
 					(_, KeyCode::Esc, KeyModifiers::NONE) => Action::Cancel,
 
 					(_, KeyCode::Char('h'), KeyModifiers::NONE)
-						if current_state != AppState::EditSearch =>
+						if !current_state.is_interactive() =>
 					{
 						Action::ToggleHelp
 					}
