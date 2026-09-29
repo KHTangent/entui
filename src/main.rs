@@ -17,8 +17,10 @@ pub fn init_logging() {
 	};
 	let file =
 		std::fs::File::create(&path).expect("failed to create log file specified by ENTUI_LOG");
+	let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+		.unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
 	tracing_subscriber::fmt()
-		.with_max_level(tracing::Level::INFO)
+		.with_env_filter(filter)
 		.with_writer(file)
 		.init();
 	tracing::info!("Logging to {path}");
