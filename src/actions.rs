@@ -12,6 +12,7 @@ pub enum Action {
 	ManualSearch,
 	Cancel,
 	Confirm,
+	ToggleHelp,
 	Quit,
 	HardQuit,
 }
@@ -52,6 +53,13 @@ impl Action {
 					(_, KeyCode::Enter, KeyModifiers::NONE) => Action::Confirm,
 					(_, KeyCode::Tab, KeyModifiers::NONE) => Action::ManualSearch,
 					(_, KeyCode::Esc, KeyModifiers::NONE) => Action::Cancel,
+
+					(_, KeyCode::Char('h'), KeyModifiers::NONE)
+						if current_state != AppState::EditSearch =>
+					{
+						Action::ToggleHelp
+					}
+					(_, KeyCode::Char('?'), KeyModifiers::NONE) => Action::ToggleHelp,
 
 					(_, _, _) => Action::None,
 				}

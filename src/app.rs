@@ -33,6 +33,46 @@ pub enum AppState {
 	BrowseQuays,
 }
 
+impl AppState {
+	pub fn keybinds(self) -> &'static [&'static str] {
+		match self {
+			AppState::EditSearch => &[
+				"<Tab>      search",
+				"<Enter>    select stop",
+				"<Up/C-u>   previous suggestion",
+				"<Down/C-d> next suggestion",
+				"<Esc>      back",
+				"<?>        toggle help",
+			],
+			AppState::DepartureList => &[
+				"<j/Down/C-d> move down",
+				"<k/Up/C-u>   move up",
+				"<e>          edit search",
+				"<p>          browse quays",
+				"<Enter>      view stops",
+				"<Esc>        clear selection",
+				"<h/?>        toggle help",
+				"<q>          quit",
+			],
+			AppState::BrowseStops => &[
+				"<j/Down/C-d> move down",
+				"<k/Up/C-u>   move up",
+				"<Esc>        back",
+				"<h/?>        toggle help",
+				"<q>          quit",
+			],
+			AppState::BrowseQuays => &[
+				"<j/Down/C-d> move down",
+				"<k/Up/C-u>   move up",
+				"<Enter>      filter quay",
+				"<Esc>        cancel",
+				"<h/?>        toggle help",
+				"<q>          quit",
+			],
+		}
+	}
+}
+
 #[derive(Clone, Debug)]
 enum FetchResult {
 	Autocomplete(Vec<StopSearchResult>),
@@ -53,6 +93,7 @@ pub struct App {
 	suggestion_list_state: SuggestionListState,
 	should_quit: bool,
 	fetch_tx: Option<UnboundedSender<FetchResult>>,
+	show_help: bool,
 }
 
 impl App {
@@ -69,6 +110,7 @@ impl App {
 			suggestion_list_state: SuggestionListState::new(),
 			should_quit: false,
 			fetch_tx: None,
+			show_help: true,
 		}
 	}
 
@@ -137,6 +179,10 @@ impl App {
 		}
 		if !self.active_errors.is_empty() && action == Action::Confirm {
 			self.active_errors.pop_front();
+			return;
+		}
+		if action == Action::ToggleHelp {
+			self.show_help = !self.show_help;
 			return;
 		}
 		match action {
@@ -303,6 +349,36 @@ impl App {
 			frame.render_widget(Clear, error_area);
 			frame.render_widget(error_paragraph, error_area);
 		}
+
+		if self.show_help {
+			self.render_floating_help(frame);
+		}
+	}
+
+	fn render_floating_help(&mut self, frame: &mut Frame) {
+		let keybinds = self.current_state.keybinds();
+		let content_width = keybinds
+			.iter()
+			.map(|k| k.chars().count())
+			.max()
+			.unwrap_or(0) as u16;
+		let area = frame.area();
+		let help_rect = Rect {
+			x: area.right().saturating_sub(content_width + 4),
+			y: area.bottom().saturating_sub(keybinds.len() as u16 + 2),
+			width: content_width + 4,
+			height: keybinds.len() as u16 + 2,
+		};
+		let lines = keybinds.iter().map(|k| Line::from(*k)).collect::<Vec<_>>();
+		let help = Paragraph::new(lines).block(
+			Block::default()
+				.borders(Borders::ALL)
+				.padding(Padding::horizontal(1))
+				.border_style(Style::new().fg(styles::INACTIVE_COLOR))
+				.title_bottom("Help"),
+		);
+		frame.render_widget(Clear, help_rect);
+		frame.render_widget(help, help_rect);
 	}
 
 	fn render_suggestions(&mut self, frame: &mut Frame, anchor: Rect) {
