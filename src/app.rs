@@ -26,7 +26,7 @@ use crate::styles;
 
 const MAX_SUGGESTION_ROWS: u16 = 10;
 
-#[derive(Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum AppState {
 	#[default]
 	EditSearch,
@@ -146,19 +146,33 @@ impl App {
 						Event::Crossterm(event) => {
 							let state_before = self.current_state;
 							let action = Action::from_event(&event, self.current_state);
+							tracing::debug!("Action {action:?} in state {state_before:?}");
 							self.handle_action(action);
+							if self.current_state != state_before {
+								tracing::debug!(
+									"State transition {state_before:?} -> {:?}",
+									self.current_state
+								);
+							}
 							if self.current_state == AppState::EditSearch && action != Action::SelectSearch {
 								self.stop_input.handle_event(&event);
 							} else if state_before == AppState::EditTime && action == Action::None {
 								self.time_editor_state.handle_event(&event);
 							}
 						}
-						Event::Error => {}
+						Event::Error => {
+							tracing::debug!("Crossterm error event received");
+						}
 					}
 				}
 				Some(result) = fetch_rx.recv() => {
 					match result {
 						FetchResult::Departures(board) => {
+							tracing::info!(
+								"Loaded {} departures across {} quays",
+								board.departures.len(),
+								board.quays.len()
+							);
 							self.departure_list_state.set_departures(board.departures);
 							self.departure_list_state.set_quays(&board.quays);
 							self.quay_list_state.set_items(board.quays);
@@ -166,6 +180,7 @@ impl App {
 							self.stop_list_state.clear();
 						}
 						FetchResult::Stops(stops) => {
+							tracing::info!("Loaded {} stops", stops.len());
 							let selected_index = if let Some(departure) = self.departure_list_state.selected_departure() {
 								let current_quay_id = &departure.quay_id;
 								stops.iter().position(|s| s.quay_id == *current_quay_id)
@@ -176,9 +191,11 @@ impl App {
 							self.stop_list_state.set_selected_index(selected_index);
 						}
 						FetchResult::Autocomplete(results) => {
+							tracing::info!("Found {} stop suggestions", results.len());
 							self.suggestion_list_state.set_items(results);
 						}
 						FetchResult::Error(e) => {
+							tracing::error!("API error ({:?}): {}", e.kind, e.message);
 							self.active_errors.push_back((
 								format!("{:?}", e.kind),
 								e.message,
@@ -467,10 +484,13 @@ impl App {
 		if let Some(tx) = &self.fetch_tx {
 			let tx = tx.clone();
 			tokio::spawn(async move {
-				let _ = match fetch.await {
+				let send_result = match fetch.await {
 					Ok(value) => tx.send(on_ok(value)),
 					Err(e) => tx.send(FetchResult::Error(e)),
 				};
+				if send_result.is_err() {
+					tracing::warn!("Failed to send fetch result: receiver dropped");
+				}
 			});
 		}
 	}

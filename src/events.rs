@@ -47,6 +47,9 @@ fn make_render_stream() -> Pin<Box<dyn Stream<Item = Event>>> {
 fn make_crossterm_stream() -> Pin<Box<dyn Stream<Item = Event>>> {
 	Box::pin(EventStream::new().fuse().filter_map(|event| match event {
 		Ok(event) => Some(Event::Crossterm(event)),
-		Err(_) => Some(Event::Error),
+		Err(error) => {
+			tracing::warn!("Crossterm event stream error: {error}");
+			Some(Event::Error)
+		}
 	}))
 }

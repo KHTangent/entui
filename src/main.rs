@@ -21,15 +21,25 @@ pub fn init_logging() {
 		.with_max_level(tracing::Level::INFO)
 		.with_writer(file)
 		.init();
+	tracing::info!("Logging to {path}");
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
 	init_logging();
 	color_eyre::install()?;
+	tracing::info!(
+		"Starting {} v{}",
+		env!("CARGO_PKG_NAME"),
+		env!("CARGO_PKG_VERSION")
+	);
 	let mut app = App::new();
 	let mut terminal = ratatui::init();
 	let result = app.run(&mut terminal).await.context("failed to run app");
+	match &result {
+		Ok(()) => tracing::info!("Shutting down"),
+		Err(error) => tracing::error!("Application error: {error:?}"),
+	}
 	ratatui::restore();
 	result
 }

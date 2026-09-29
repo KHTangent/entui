@@ -2,7 +2,7 @@ use ratatui::crossterm::event::{Event as CrosstermEvent, KeyCode, KeyModifiers};
 
 use crate::app::AppState;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Action {
 	None,
 	MoveDown,

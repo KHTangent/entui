@@ -36,6 +36,7 @@ impl fmt::Display for ApiError {
 
 impl From<reqwest::Error> for ApiError {
 	fn from(value: reqwest::Error) -> Self {
+		tracing::debug!("Converting reqwest error: {value}");
 		if !value.is_status() {
 			return Self {
 				kind: ApiErrorKind::BadRequest,

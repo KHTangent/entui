@@ -1,8 +1,9 @@
 use std::collections::HashMap;
+use std::time::Instant;
 
 use chrono::{DateTime, Local};
 use serde_json::json;
-use tracing::info;
+use tracing::{debug, info, warn};
 
 use crate::entur_api_wrapper::raw_types::{
 	geocoding::AutocompleteResponse,
@@ -74,14 +75,15 @@ impl Geocoder {
 		query: &str,
 	) -> Result<AutocompleteResponse, reqwest::Error> {
 		info!(r#"Requesting search data for "{}""#, query);
-		client
+		let started = Instant::now();
+		let response = client
 			.get(GEOCODER_URL)
 			.query(&[("layers", "stopPlace"), ("q", query)])
 			.header("ET-Client-Name", CLIENT_NAME)
 			.send()
-			.await?
-			.json::<AutocompleteResponse>()
-			.await
+			.await?;
+		log_response("Search data", query, &response, started);
+		response.json::<AutocompleteResponse>().await
 	}
 }
 
@@ -95,6 +97,12 @@ impl JourneyPlanner {
 		time: &DateTime<Local>,
 	) -> Result<DepartureBoard, reqwest::Error> {
 		info!(r#"Requesting departure board for "{}""#, stop_id);
+		debug!(
+			r#"Departure board request for "{}": {} departures from {}"#,
+			stop_id,
+			num_departures,
+			time.to_rfc3339()
+		);
 		let mut vars: HashMap<&str, serde_json::Value> = HashMap::new();
 		vars.insert("departures", json!(num_departures));
 		vars.insert("id", json!(stop_id));
@@ -103,14 +111,15 @@ impl JourneyPlanner {
 			query: DEPARTUREBOARD_QUERY,
 			variables: vars,
 		};
-		client
+		let started = Instant::now();
+		let response = client
 			.post(JOURNEYPLANNER_URL)
 			.json(&request)
 			.header("ET-Client-Name", CLIENT_NAME)
 			.send()
-			.await?
-			.json::<DepartureBoard>()
-			.await
+			.await?;
+		log_response("Departure board", stop_id, &response, started);
+		response.json::<DepartureBoard>().await
 	}
 
 	pub async fn get_stops(
@@ -124,13 +133,28 @@ impl JourneyPlanner {
 			query: STOPS_QUERY,
 			variables: vars,
 		};
-		client
+		let started = Instant::now();
+		let response = client
 			.post(JOURNEYPLANNER_URL)
 			.json(&request)
 			.header("ET-Client-Name", CLIENT_NAME)
 			.send()
-			.await?
-			.json::<StopList>()
-			.await
+			.await?;
+		log_response("Stops", departure_id, &response, started);
+		response.json::<StopList>().await
+	}
+}
+
+fn log_response(label: &str, query: &str, response: &reqwest::Response, started: Instant) {
+	let status = response.status();
+	if status.is_success() {
+		debug!(
+			r#"{label} for "{}" responded {} in {:?}"#,
+			query,
+			status,
+			started.elapsed()
+		);
+	} else {
+		warn!(r#"{label} for "{}" failed with status {}"#, query, status);
 	}
 }

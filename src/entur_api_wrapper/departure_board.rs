@@ -57,7 +57,16 @@ impl Departure {
 			.map(|call| Stop {
 				quay_id: call.quay.id,
 				name: call.quay.name,
-				time: call.expected_departure_time.parse().unwrap_or(Local::now()),
+				time: call
+					.expected_departure_time
+					.parse()
+					.unwrap_or_else(|error| {
+						tracing::warn!(
+							r#"Failed to parse stop departure time "{}": {error}"#,
+							call.expected_departure_time
+						);
+						Local::now()
+					}),
 			})
 			.collect();
 		Ok(result)
@@ -82,7 +91,13 @@ pub async fn get_departures(from: &str, time: &DateTime<Local>) -> ApiResult<Dep
 			time: call
 				.expected_departure_time
 				.parse()
-				.unwrap_or_else(|_| Local::now()),
+				.unwrap_or_else(|error| {
+					tracing::warn!(
+						r#"Failed to parse departure time "{}": {error}"#,
+						call.expected_departure_time
+					);
+					Local::now()
+				}),
 		})
 		.collect();
 
