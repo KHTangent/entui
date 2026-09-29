@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use chrono::{DateTime, Local};
 use serde_json::json;
 use tracing::info;
 
@@ -13,7 +14,7 @@ const JOURNEYPLANNER_URL: &str = "https://api.entur.io/journey-planner/v3/graphq
 const CLIENT_NAME: &str = "KHTangent-Entui";
 
 const DEPARTUREBOARD_QUERY: &str = r#"
-query departureBoard($id: String!, $departures: Int!) {
+query departureBoard($id: String!, $departures: Int!, $startTime: DateTime!) {
 	stopPlace(id: $id) {
 		id
 		name
@@ -23,7 +24,7 @@ query departureBoard($id: String!, $departures: Int!) {
 			publicCode
 			description
 		}
-		estimatedCalls(timeRange: 72100, numberOfDepartures: $departures) {
+		estimatedCalls(timeRange: 72100, numberOfDepartures: $departures, startTime: $startTime) {
 			realtime
 			aimedDepartureTime
 			expectedDepartureTime
@@ -91,11 +92,13 @@ impl JourneyPlanner {
 		client: &reqwest::Client,
 		stop_id: &str,
 		num_departures: u32,
+		time: &DateTime<Local>,
 	) -> Result<DepartureBoard, reqwest::Error> {
 		info!(r#"Requesting departure board for "{}""#, stop_id);
 		let mut vars: HashMap<&str, serde_json::Value> = HashMap::new();
 		vars.insert("departures", json!(num_departures));
 		vars.insert("id", json!(stop_id));
+		vars.insert("startTime", json!(time.to_rfc3339()));
 		let request = RequestQuery {
 			query: DEPARTUREBOARD_QUERY,
 			variables: vars,

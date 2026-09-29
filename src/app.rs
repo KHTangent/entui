@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::future::Future;
 
+use chrono::{DateTime, Local};
 use color_eyre::Result;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
@@ -105,6 +106,7 @@ pub struct App {
 	selected_quay_id: Option<String>,
 	suggestion_list_state: SuggestionListState,
 	time_editor_state: TimeEditorState,
+	selected_time: DateTime<Local>,
 	should_quit: bool,
 	fetch_tx: Option<UnboundedSender<FetchResult>>,
 	show_help: bool,
@@ -123,6 +125,7 @@ impl App {
 			stop_input: tui_input::Input::default(),
 			suggestion_list_state: SuggestionListState::new(),
 			time_editor_state: TimeEditorState::new(),
+			selected_time: Local::now(),
 			should_quit: false,
 			fetch_tx: None,
 			show_help: true,
@@ -299,8 +302,9 @@ impl App {
 				}
 				Action::Confirm => match self.time_editor_state.parse() {
 					Ok(timestamp) => {
-						tracing::info!(%timestamp, "selected departure time");
+						self.selected_time = timestamp;
 						self.current_state = AppState::DepartureList;
+						self.populate_departures();
 					}
 					Err(message) => {
 						self.active_errors
@@ -481,8 +485,9 @@ impl App {
 
 	fn populate_departures(&mut self) {
 		if let Some(from) = self.selected_stop_id.clone() {
+			let time = self.selected_time.clone();
 			self.spawn_fetch(
-				async move { get_departures(&from).await },
+				async move { get_departures(&from, &time).await },
 				FetchResult::Departures,
 			);
 		}

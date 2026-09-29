@@ -1,4 +1,4 @@
-use chrono::Local;
+use chrono::{DateTime, Local};
 
 use crate::entur_api_wrapper::{api, error::ApiResult};
 
@@ -64,9 +64,9 @@ impl Departure {
 	}
 }
 
-pub async fn get_departures(from: &str) -> ApiResult<DepartureBoardData> {
+pub async fn get_departures(from: &str, time: &DateTime<Local>) -> ApiResult<DepartureBoardData> {
 	let client = reqwest::Client::new();
-	let stop_place = api::JourneyPlanner::get_departures(&client, from, 30)
+	let stop_place = api::JourneyPlanner::get_departures(&client, from, 30, time)
 		.await?
 		.data
 		.stop_place;
